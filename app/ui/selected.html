@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selected | LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/staging.css">
+</head>
+<body>
+  <!-- Top Navigation -->
+  <nav class="nav">
+    <a href="index.html" class="nav__brand">LibraryExplorer</a>
+    <div class="nav__tabs">
+      <a href="wiki.html" class="nav__tab">Wiki</a>
+      <a href="explore-graph-artist.html" class="nav__tab">Explore</a>
+      <a href="browse.html" class="nav__tab">Browse</a>
+      <a href="selected.html" class="nav__tab nav__tab--active">Selected</a>
+      <a href="settings.html" class="nav__tab">Settings</a>
+    </div>
+  </nav>
+
+  <!-- Staging Layout -->
+  <div class="staging-layout">
+    <!-- Left Panel: Sets -->
+    <div class="sets-panel">
+      <div class="sets-panel__header">
+        <h2 class="sets-panel__title">Selected</h2>
+        <span class="sets-panel__count" id="sets-count">0 sets</span>
+      </div>
+
+      <div class="sets-panel__content" id="sets-container">
+        <!-- Empty state -->
+        <div class="sets-empty" id="empty-state">
+          <div class="sets-empty__icon">&#128203;</div>
+          <div class="sets-empty__title">No sets yet</div>
+          <p class="sets-empty__text">Add selections from <a href="browse.html">Browse</a> or <a href="explore-graph-artist.html">Explore</a> pages.</p>
+        </div>
+
+        <!-- Set cards will be inserted here -->
+      </div>
+
+    </div>
+
+    <!-- Right Panel: Metrics -->
+    <div class="metrics-panel-wrapper" id="metrics-panel">
+      <div class="metrics-panel__header">
+        <h3 class="metrics-panel__title">Metrics</h3>
+      </div>
+
+      <div class="metrics-panel__content">
+
+        <!-- Combined Result -->
+        <div class="metrics-combined">
+          <div class="metrics-combined__artists">
+            <span class="metrics-combined__num" id="metric-artists">0</span>
+            <span class="metrics-combined__label">Artists</span>
+          </div>
+          <div class="metrics-combined__sep">·</div>
+          <div class="metrics-combined__tracks">
+            <span class="metrics-combined__num" id="metric-tracks">0</span>
+            <span class="metrics-combined__label">Tracks</span>
+          </div>
+        </div>
+
+        <!-- Quality -->
+        <div class="metrics-card">
+          <div class="metrics-card__title">Quality</div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Duplicates</span>
+            <span class="metrics-card__value" id="metric-duplicates">0</span>
+          </div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Avg per artist</span>
+            <span class="metrics-card__value" id="metric-avg-tracks">--</span>
+          </div>
+        </div>
+
+        <!-- Diversity -->
+        <div class="metrics-card">
+          <div class="metrics-card__title">Diversity</div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Genre entropy</span>
+            <span class="metrics-card__value metrics-card__value--accent" id="metric-genre-entropy">--</span>
+          </div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Decade span</span>
+            <span class="metrics-card__value" id="metric-decade-span">--</span>
+          </div>
+        </div>
+
+        <!-- Dominant -->
+        <div class="metrics-card">
+          <div class="metrics-card__title">Dominant</div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Top genre</span>
+            <span class="metrics-card__value" id="metric-top-genre">--</span>
+          </div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Top decade</span>
+            <span class="metrics-card__value" id="metric-top-decade">--</span>
+          </div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Avg energy</span>
+            <span class="metrics-card__value" id="metric-avg-energy">--</span>
+          </div>
+          <div class="metrics-card__row">
+            <span class="metrics-card__label">Avg tempo</span>
+            <span class="metrics-card__value" id="metric-avg-tempo">--</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="metrics-panel__footer">
+        <button class="btn btn--primary btn--full" id="export-btn">Export Playlist</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Playlist Modal -->
+  <div class="export-modal" id="export-modal">
+    <div class="export-modal__content">
+      <div class="export-modal__header">
+        <h3 class="export-modal__title">Export Playlist</h3>
+        <button class="export-modal__close" id="export-close">&times;</button>
+      </div>
+      <div class="export-modal__body">
+        <div class="form-group">
+          <label class="form-label">Playlist name</label>
+          <input type="text" class="form-input" id="export-name" placeholder="My Selection · 2026-03-22">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description <span style="opacity:.5;font-weight:400">(optional)</span></label>
+          <input type="text" class="form-input" id="export-description" placeholder="Exported from LibraryExplorer">
+        </div>
+        <div class="form-group export-modal__visibility">
+          <span class="form-label" style="margin:0">Visibility</span>
+          <label class="export-radio"><input type="radio" name="export-visibility" value="private" checked> Private</label>
+          <label class="export-radio"><input type="radio" name="export-visibility" value="public"> Public</label>
+        </div>
+        <div class="export-modal__count" id="export-count">0 tracks from 0 artists</div>
+        <div class="export-section">
+          <div class="export-section__title">Create in Spotify</div>
+          <div id="spotify-status" class="export-status"></div>
+          <div id="client-id-prompt" style="display:none">
+            <p class="export-hint">
+              Enter your Spotify Client ID to connect.<br>
+              Create one at <strong>developer.spotify.com</strong> &rarr; Dashboard &rarr; your app.<br>
+              Register this redirect URI:<br>
+              <code class="export-code" id="spotify-redirect-uri"></code>
+              <script>document.getElementById('spotify-redirect-uri').textContent = window.location.origin + '/ui/callback.html';</script>
+            </p>
+            <div class="export-row">
+              <input type="text" class="form-input" id="client-id-input" placeholder="Paste Client ID here...">
+              <button class="btn" id="save-client-id">Save</button>
+            </div>
+          </div>
+          <div id="spotify-actions" class="export-row" style="display:none">
+            <button class="btn btn--primary" id="spotify-create-btn">Create Spotify Playlist</button>
+            <button class="btn btn--sm" id="spotify-disconnect">Disconnect</button>
+          </div>
+          <div id="spotify-progress" class="export-progress" style="display:none"></div>
+        </div>
+        <div class="export-section">
+          <div class="export-section__title">Export to file</div>
+          <div class="export-row">
+            <button class="btn" id="export-csv-clean">Export CSV</button>
+            <button class="btn" id="export-csv-debug">Export Debug CSV</button>
+          </div>
+          <p class="export-hint">Import CSV at <strong>tunemymusic.com</strong> &rarr; File to Spotify. Debug CSV includes genres and audio features.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Editor Modal -->
+  <div class="filter-modal" id="filter-modal">
+    <div class="filter-modal__content">
+      <div class="filter-modal__header">
+        <h3 class="filter-modal__title">Edit Filters: <span id="filter-modal-name"></span></h3>
+        <button class="filter-modal__close" id="filter-close">&times;</button>
+      </div>
+
+      <div class="filter-modal__body" id="filter-body">
+        <!-- Audio Features -->
+        <div class="filter-group filter-group--open" data-group="audio">
+          <div class="filter-group__header">
+            <span class="filter-group__chevron">&#9654;</span>
+            <span class="filter-group__title">Audio Features</span>
+          </div>
+          <div class="filter-group__content">
+            <div class="range-filter" data-filter="energy">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Energy</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="0" max="100" value="0" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="0" max="100" value="100" data-type="max">
+              </div>
+            </div>
+            <div class="range-filter" data-filter="danceability">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Danceability</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="0" max="100" value="0" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="0" max="100" value="100" data-type="max">
+              </div>
+            </div>
+            <div class="range-filter" data-filter="tempo">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Tempo</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="60" max="200" value="60" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="60" max="200" value="200" data-type="max">
+              </div>
+            </div>
+            <div class="range-filter" data-filter="valence">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Valence</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="0" max="100" value="0" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="0" max="100" value="100" data-type="max">
+              </div>
+            </div>
+            <div class="range-filter" data-filter="acousticness">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Acousticness</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="0" max="100" value="0" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="0" max="100" value="100" data-type="max">
+              </div>
+            </div>
+            <div class="range-filter" data-filter="instrumentalness">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Instrumentalness</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="0" max="100" value="0" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="0" max="100" value="100" data-type="max">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="filter-group" data-group="metadata">
+          <div class="filter-group__header">
+            <span class="filter-group__chevron">&#9654;</span>
+            <span class="filter-group__title">Metadata</span>
+          </div>
+          <div class="filter-group__content">
+            <div class="range-filter" data-filter="decade">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Decade</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="1900" max="2020" value="1900" step="10" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="1900" max="2020" value="2020" step="10" data-type="max">
+              </div>
+            </div>
+            <div class="range-filter" data-filter="trackCount">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Tracks per Artist</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill"></div>
+                <input type="range" class="dual-range__input dual-range__input--min" min="1" max="100" value="1" data-type="min">
+                <input type="range" class="dual-range__input dual-range__input--max" min="1" max="100" value="100" data-type="max">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Source-specific (Graph) -->
+        <div class="filter-group" data-group="graph" id="graph-filters" style="display: none;">
+          <div class="filter-group__header">
+            <span class="filter-group__chevron">&#9654;</span>
+            <span class="filter-group__title">Graph</span>
+          </div>
+          <div class="filter-group__content">
+            <div class="range-filter" data-filter="minSimilarity">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Min Similarity</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill" style="left: 0; width: 0"></div>
+                <input type="range" class="dual-range__input" min="0" max="100" value="0">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Source-specific (Embedding) -->
+        <div class="filter-group" data-group="embedding" id="embedding-filters" style="display: none;">
+          <div class="filter-group__header">
+            <span class="filter-group__chevron">&#9654;</span>
+            <span class="filter-group__title">Embedding</span>
+          </div>
+          <div class="filter-group__content">
+            <div class="range-filter" data-filter="spatialDistance">
+              <div class="range-filter__header">
+                <span class="range-filter__label">Spatial Distance</span>
+                <span class="range-filter__value">(off)</span>
+              </div>
+              <div class="dual-range">
+                <div class="dual-range__track"></div>
+                <div class="dual-range__fill" style="left: 0; width: 0"></div>
+                <input type="range" class="dual-range__input" min="0" max="100" value="100">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-modal__footer">
+        <div class="filter-modal__preview">
+          Preview: <strong id="filter-preview">-- artists, -- tracks</strong>
+        </div>
+        <div class="filter-modal__actions">
+          <button class="btn" id="filter-reset">Reset All</button>
+          <button class="btn btn--primary" id="filter-apply">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { staging } from './js/stores/staging.js';
+    import * as api from './js/lib/api.js';
+    import * as spotifyAuth from './js/lib/spotify-auth.js';
+    import * as spotifyApi from './js/lib/spotify-api.js';
+
+    // === State ===
+    let artistsData = [];
+    let currentEditingSetId = null;
+    let currentFilters = {};
+
+    // === DOM Elements ===
+    const setsContainer = document.getElementById('sets-container');
+    const emptyState = document.getElementById('empty-state');
+    const setsCount = document.getElementById('sets-count');
+
+    const filterModal = document.getElementById('filter-modal');
+    const filterModalName = document.getElementById('filter-modal-name');
+    const filterPreview = document.getElementById('filter-preview');
+    const filterClose = document.getElementById('filter-close');
+    const filterApply = document.getElementById('filter-apply');
+    const filterReset = document.getElementById('filter-reset');
+
+    const exportBtn = document.getElementById('export-btn');
+
+    // === Initialize ===
+    async function init() {
+      try {
+        const response = await api.getArtists({ limit: 5000 });
+        artistsData = response.artists;
+      } catch (error) {
+        console.error('Failed to load artists:', error);
+      }
+
+      staging.addEventListener('change', renderSets);
+      renderSets();
+      attachMetricsSectionHandlers();
+    }
+
+    // === Render Sets ===
+    function renderSets() {
+      const selections = staging.getAll();
+      const stats = staging.getStats();
+
+      setsCount.textContent = `${selections.length} set${selections.length !== 1 ? 's' : ''}`;
+
+      // Show/hide empty state
+      if (selections.length === 0) {
+        emptyState.style.display = 'flex';
+        setsContainer.querySelectorAll('.set-item').forEach(el => el.remove());
+      } else {
+        emptyState.style.display = 'none';
+        setsContainer.querySelectorAll('.set-item').forEach(el => el.remove());
+
+        selections.forEach((selection, index) => {
+          const card = createSetCard(selection, index + 1);
+          setsContainer.insertBefore(card, emptyState);
+        });
+      }
+
+      // Update metrics
+      updateMetrics(selections);
+    }
+
+    // Audio feature definitions (match radar axes)
+    const AUDIO_FEATURES = [
+      { key: 'energy',           label: 'Energy',   min: 0, max: 100, step: 1 },
+      { key: 'danceability',     label: 'Dance',    min: 0, max: 100, step: 1 },
+      { key: 'valence',          label: 'Valence',  min: 0, max: 100, step: 1 },
+      { key: 'acousticness',     label: 'Acoustic', min: 0, max: 100, step: 1 },
+      { key: 'instrumentalness', label: 'Instr',    min: 0, max: 100, step: 1 },
+    ];
+    // Keep alias for readInlineFilters / applyInlineFilters compatibility
+    const INLINE_FILTER_DEFS = [
+      ...AUDIO_FEATURES.map(f => ({ ...f, unit: '', cat: 'audio' })),
+      { key: 'decade', label: 'Decade', min: 1960, max: 2020, step: 10, unit: 's', cat: 'metadata' },
+    ];
+
+    function sourceIcon(selection) {
+      const t = selection.type || selection.source?.type || '';
+      if (t === 'community') return '🕸';
+      if (t === 'cluster') return '🎯';
+      if (t === 'audio_range') return '🎵';
+      if (t === 'track') return '🎵';
+      if (t === 'genre' || t === 'parent_genre') return '🏷';
+      if (t === 'decade' || t === 'decade_genre') return '📅';
+      return '📚'; // artist, library default
+    }
+
+    function sourceLabel(selection) {
+      const s = selection.source;
+      if (!s) return selection.name || '';
+      if (s.type === 'community') return `${s.preset || ''} · ${s.element || ''}`.replace(/^·\s*/, '').replace(/\s*·\s*$/, '');
+      if (s.type === 'cluster') return s.element || selection.name;
+      if (s.tab) return `${s.tab}${s.element ? ' · ' + s.element : ''}`;
+      return selection.name || '';
+    }
+
+    function createSetCard(selection, index) {
+      const card = document.createElement('div');
+      card.className = 'set-item';
+      card.dataset.id = selection.id;
+
+      const artistCount = selection.artistIds?.length || 0;
+      // Compute track count from stored value or from loaded artist data
+      const storedTracks = selection.current_count?.tracks || selection.original_count?.tracks || 0;
+      const computedTracks = storedTracks > 0 ? storedTracks : (() => {
+        if (!artistsData.length) return 0;
+        const idSet = new Set(selection.artistIds || []);
+        return artistsData.filter(a => idSet.has(a.id) || idSet.has(a.name))
+          .reduce((sum, a) => sum + (a.track_count || 0), 0);
+      })();
+      const trackCount = computedTracks.toLocaleString();
+      const originalCount = selection.original_count?.artists || artistCount;
+      const isFiltered = artistCount !== originalCount;
+      const displayName = escapeHtml(selection.alias || selection.name);
+      const filterMode = selection.filters?.mode || 'include';
+      const existingFilters = selection.filters || {};
+
+      // Build audio slider rows (5 features matching radar)
+      const sliderRows = AUDIO_FEATURES.map(f => {
+        let minVal = 0, maxVal = 100;
+        if (existingFilters.audio?.[f.key]) {
+          const range = existingFilters.audio[f.key];
+          minVal = Math.round(range[0] * 100);
+          maxVal = Math.round(range[1] * 100);
+        }
+        const isActive = minVal > 0 || maxVal < 100;
+        const leftPct = minVal;
+        const widthPct = maxVal - minVal;
+        const valText = isActive ? `${(minVal/100).toFixed(2)}–${(maxVal/100).toFixed(2)}` : '';
+        return `
+          <div class="slider-row${isActive ? ' slider-row--active' : ''}" data-filter="${f.key}" data-cat="audio">
+            <span class="slider-label">${f.label}</span>
+            <div class="range-slider">
+              <div class="range-track"></div>
+              <div class="range-fill" style="left:${leftPct}%;width:${widthPct}%"></div>
+              <input type="range" class="range-thumb range-min" min="0" max="100" step="1" value="${minVal}">
+              <input type="range" class="range-thumb range-max" min="0" max="100" step="1" value="${maxVal}">
+            </div>
+            <span class="slider-vals">${valText}</span>
+          </div>`;
+      }).join('');
+
+      // Year slider
+      const YR_MIN = 1960, YR_MAX = 2024;
+      const yrMin = existingFilters.metadata?.decade?.[0] ?? YR_MIN;
+      const yrMax = existingFilters.metadata?.decade?.[1] ?? YR_MAX;
+      const yrLeftPct = ((yrMin - YR_MIN) / (YR_MAX - YR_MIN)) * 100;
+      const yrWidthPct = ((yrMax - YR_MIN) / (YR_MAX - YR_MIN)) * 100 - yrLeftPct;
+      const yrActive = yrMin > YR_MIN || yrMax < YR_MAX;
+
+      // Alias display: show "alias · original" if alias set
+      const hasAlias = !!(selection.alias && selection.alias !== selection.name);
+      const headerName = hasAlias
+        ? `<span class="set-item__alias">${escapeHtml(selection.alias)}</span><span class="set-item__name-orig"> · ${escapeHtml(selection.name)}</span>`
+        : `<span>${escapeHtml(selection.name)}</span>`;
+
+      card.innerHTML = `
+        <div class="set-item__header">
+          <div class="set-item__header-row set-item__header-top">
+            <span class="set-item__num">SET ${index}</span>
+            <span class="set-item__icon">${sourceIcon(selection)}</span>
+            <span class="set-item__name" title="${displayName}">${headerName}</span>
+            <button class="set-item__rename" title="Rename" data-action="rename">&#9998;</button>
+            <button class="action-btn action-btn--ghost action-btn--xs" data-action="duplicate" title="Duplicate set">&#10066;</button>
+            <button class="action-btn action-btn--danger action-btn--xs" data-action="remove" title="Remove set">&#10005;</button>
+            <span class="set-item__chevron">&#9660;</span>
+          </div>
+          <div class="set-item__stats">${artistCount} artists · ${trackCount} tracks${isFiltered ? ` · <em>${originalCount} original</em>` : ''}</div>
+        </div>
+        <div class="set-item__body">
+
+          <!-- Audio profile: radar + sliders -->
+          <div class="set-audio-panel">
+            <canvas class="set-radar" width="160" height="160"></canvas>
+            <div class="set-sliders">${sliderRows}</div>
+          </div>
+
+          <!-- Year range -->
+          <div class="slider-row${yrActive ? ' slider-row--active' : ''}" data-filter="decade" data-cat="metadata">
+            <span class="slider-label">Year</span>
+            <div class="range-slider">
+              <div class="range-track"></div>
+              <div class="range-fill" style="left:${yrLeftPct}%;width:${yrWidthPct}%"></div>
+              <input type="range" class="range-thumb range-min" min="${YR_MIN}" max="${YR_MAX}" step="1" value="${yrMin}">
+              <input type="range" class="range-thumb range-max" min="${YR_MIN}" max="${YR_MAX}" step="1" value="${yrMax}">
+            </div>
+            <span class="slider-vals">${yrActive ? `${yrMin}–${yrMax}` : ''}</span>
+          </div>
+
+          <!-- Filter footer: mode + preview + apply -->
+          <div class="set-filter-footer">
+            <div class="filter-mode-btns">
+              <button class="mode-pill${filterMode === 'include' ? ' mode-pill--active' : ''}" data-mode="include">Include</button>
+              <button class="mode-pill${filterMode === 'exclude' ? ' mode-pill--active' : ''}" data-mode="exclude">Exclude</button>
+              <span class="ifilter-preview">${artistCount} artists</span>
+            </div>
+            <div class="inline-filters__btns">
+              <button class="btn btn--sm" data-action="reset-filters">Reset</button>
+              <button class="btn btn--sm btn--primary" data-action="apply-filters">Apply</button>
+            </div>
+          </div>
+
+          <!-- Artist Review inline accordion -->
+          <div class="artist-accordion">
+            <button class="artist-accordion__toggle" data-action="toggle-review">
+              <span class="artist-accordion__chev">&#9654;</span>
+              Review Artists
+              <span class="artist-accordion__ct">(${artistCount})</span>
+            </button>
+            <div class="artist-accordion__body">
+              <div class="artist-list"></div>
+              <div class="artist-accordion__footer">
+                <span class="artist-excl-ct"></span>
+                <button class="btn btn--sm btn--primary" data-action="apply-exclusions">Remove Unchecked</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      // === Accordion toggle (one open at a time) ===
+      function collapseCard(c) {
+        const b = c.querySelector('.set-item__body');
+        if (!b) { c.classList.remove('set-item--open'); return; }
+        // If body was released to maxHeight:none, set concrete value first so CSS transition works
+        // (CSS cannot animate from 'none' → 0)
+        if (b.style.overflow === 'visible' || b.style.maxHeight === 'none') {
+          b.style.maxHeight = b.scrollHeight + 'px';
+          b.style.overflow = 'hidden';
+          // Double rAF: first lets browser register the concrete value, second triggers CSS 0 transition
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            c.classList.remove('set-item--open');
+            b.style.maxHeight = '';
+          }));
+        } else {
+          c.classList.remove('set-item--open');
+          b.style.maxHeight = '';
+          b.style.overflow = '';
+        }
+      }
+
+      card.querySelector('.set-item__header').addEventListener('click', (e) => {
+        if (e.target.closest('[data-action]')) return;
+        const wasOpen = card.classList.contains('set-item--open');
+        // Close all other open cards
+        setsContainer.querySelectorAll('.set-item--open').forEach(c => {
+          if (c !== card) collapseCard(c);
+        });
+        if (wasOpen) {
+          collapseCard(card);
+        } else {
+          card.classList.add('set-item--open');
+          const body = card.querySelector('.set-item__body');
+          // After open transition completes, release max-height so content can grow freely
+          body.addEventListener('transitionend', function onEnd(ev) {
+            if (ev.propertyName !== 'max-height') return;
+            body.removeEventListener('transitionend', onEnd);
+            if (card.classList.contains('set-item--open')) {
+              body.style.maxHeight = 'none';
+              body.style.overflow = 'visible';
+            }
+          });
+          requestAnimationFrame(() => {
+            const canvas = card.querySelector('.set-radar');
+            if (canvas && artistsData.length) {
+              const profile = computeSetProfile(selection);
+              drawRadarChart(canvas, profile, null);
+            }
+          });
+          updateInlinePreview(card, selection);
+        }
+      });
+
+      // === Action buttons (delegated) ===
+      card.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleSetAction(btn.dataset.action, selection, card);
+        });
+      });
+
+      // === Mode pills ===
+      card.querySelectorAll('.mode-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          card.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('mode-pill--active'));
+          pill.classList.add('mode-pill--active');
+          updateInlinePreview(card, selection);
+        });
+      });
+
+      // === Audio + decade sliders ===
+      card.querySelectorAll('.slider-row[data-filter]').forEach(row => {
+        const minInput = row.querySelector('.range-min');
+        const maxInput = row.querySelector('.range-max');
+        const fill = row.querySelector('.range-fill');
+        const valEl = row.querySelector('.slider-vals');
+        const filterKey = row.dataset.filter;
+        const isMetadata = row.dataset.cat === 'metadata';
+
+        const updateSlider = () => {
+          let mn = parseFloat(minInput.value);
+          let mx = parseFloat(maxInput.value);
+          if (mn > mx) {
+            if (document.activeElement === minInput) { minInput.value = mx; mn = mx; }
+            else { maxInput.value = mn; mx = mn; }
+          }
+          const absMin = parseFloat(minInput.min);
+          const absMax = parseFloat(maxInput.max);
+          const span = absMax - absMin;
+          fill.style.left = `${((mn - absMin) / span) * 100}%`;
+          fill.style.width = `${((mx - mn) / span) * 100}%`;
+
+          const isDefault = mn === absMin && mx === absMax;
+          row.classList.toggle('slider-row--active', !isDefault);
+          if (isMetadata) {
+            valEl.textContent = isDefault ? '' : `${Math.round(mn)}–${Math.round(mx)}`;
+          } else {
+            valEl.textContent = isDefault ? '' : `${(mn/100).toFixed(2)}–${(mx/100).toFixed(2)}`;
+          }
+          // Redraw radar with current filter midpoints overlay
+          const canvas = card.querySelector('.set-radar');
+          if (canvas && artistsData.length) {
+            drawRadarChart(canvas, computeSetProfile(selection), readSliderFilterProfile(card));
+          }
+          clearTimeout(row._t);
+          row._t = setTimeout(() => updateInlinePreview(card, selection), 250);
+        };
+
+        minInput.addEventListener('input', updateSlider);
+        maxInput.addEventListener('input', updateSlider);
+      });
+
+      // Artist review state (closure)
+      let setArtists = null;
+      const artistExclusions = new Set();
+
+      // Expose for handleSetAction
+      card._getArtistState = () => ({ setArtists, artistExclusions,
+        setSetArtists: (v) => { setArtists = v; } });
+
+      return card;
+    }
+
+    function formatSource(source) {
+      if (!source) return 'Unknown source';
+
+      const tabNames = {
+        artist_graph: 'Artist Graph',
+        genre_graph: 'Genre Graph',
+        embedding: 'Embedding',
+        library_overall: 'Library'
+      };
+
+      const tab = tabNames[source.tab] || source.tab;
+      const preset = source.preset ? ` (${source.preset})` : '';
+      const element = source.element ? ` → ${source.element}` : '';
+
+      return `Source: ${tab}${preset}${element}`;
+    }
+
+    function formatFilterTags(filters) {
+      if (!filters) return [];
+
+      const tags = [];
+
+      if (filters.audio) {
+        for (const [key, range] of Object.entries(filters.audio)) {
+          if (!range) continue;
+          const isActive = key === 'tempo'
+            ? (range[0] > 60 || range[1] < 220)
+            : (range[0] > 0 || range[1] < 1);
+          if (isActive) {
+            const label = key.charAt(0).toUpperCase() + key.slice(1);
+            const value = key === 'tempo'
+              ? `${range[0]} - ${range[1]} BPM`
+              : `${range[0].toFixed(1)} - ${range[1].toFixed(1)}`;
+            tags.push({ label, value });
+          }
+        }
+      }
+
+      if (filters.metadata) {
+        if (filters.metadata.decade) {
+          tags.push({ label: 'Decade', value: `${filters.metadata.decade[0]}s - ${filters.metadata.decade[1]}s` });
+        }
+        if (filters.metadata.trackCount) {
+          tags.push({ label: 'Tracks/Artist', value: `${filters.metadata.trackCount[0]}–${filters.metadata.trackCount[1]}` });
+        }
+      }
+
+      return tags;
+    }
+
+    function handleSetAction(action, selection, card) {
+      switch (action) {
+        case 'rename': {
+          const nameEl = card.querySelector('.set-item__name');
+          const current = selection.alias || '';
+          nameEl.innerHTML = `<input class="set-item__rename-input" placeholder="${escapeHtml(selection.name)}" value="${escapeHtml(current)}">`;
+          const input = nameEl.querySelector('input');
+          input.focus(); input.select();
+          const save = () => {
+            const v = input.value.trim();
+            const newAlias = v || null;
+            staging.update(selection.id, { alias: newAlias });
+            // Update header inline without full re-render
+            const hasA = !!newAlias && newAlias !== selection.name;
+            nameEl.innerHTML = hasA
+              ? `<span class="set-item__alias">${escapeHtml(newAlias)}</span><span class="set-item__name-orig"> · ${escapeHtml(selection.name)}</span>`
+              : `<span>${escapeHtml(selection.name)}</span>`;
+          };
+          input.addEventListener('blur', save);
+          input.addEventListener('keydown', e => { if (e.key === 'Enter') { input.blur(); } if (e.key === 'Escape') renderSets(); });
+          break;
+        }
+
+        case 'apply-filters': {
+          const filters = readInlineFilters(card);
+          const mode = card.querySelector('.mode-pill--active')?.dataset.mode || 'include';
+          const origIds = selection.original_count?.artistIds || selection.artistIds || [];
+          const filteredIds = applyInlineFilters(origIds, filters, mode);
+          staging.update(selection.id, {
+            filters: { ...filters, mode },
+            artistIds: filteredIds,
+            current_count: { artists: filteredIds.length, tracks: selection.current_count?.tracks || selection.original_count?.tracks || 0 }
+          });
+          card.classList.remove('set-item--open');
+          showToast('Filters applied');
+          break;
+        }
+
+        case 'reset-filters':
+          staging.update(selection.id, {
+            filters: {},
+            artistIds: selection.original_count?.artistIds || selection.artistIds,
+            current_count: selection.original_count
+          });
+          showToast('Filters reset');
+          break;
+
+        case 'duplicate':
+          staging.add({ ...selection, name: `${selection.name} (copy)`, alias: selection.alias ? `${selection.alias} (copy)` : null });
+          showToast('Set duplicated');
+          break;
+
+        case 'remove':
+          if (confirm(`Remove "${selection.alias || selection.name}"?`)) {
+            staging.remove(selection.id);
+            showToast('Set removed');
+          }
+          break;
+
+        case 'toggle-review': {
+          const accordion = card.querySelector('.artist-accordion');
+          const isOpen = accordion.classList.toggle('artist-accordion--open');
+          const chevron = accordion.querySelector('.artist-accordion__chev');
+          chevron.style.transform = isOpen ? 'rotate(90deg)' : '';
+          if (isOpen) {
+            const state = card._getArtistState();
+            let artists = state.setArtists;
+            if (!artists?.length && artistsData.length > 0) {
+              const ids = new Set(selection.artistIds || []);
+              artists = artistsData.filter(a => ids.has(a.id) || ids.has(a.name))
+                .sort((a, b) => (b.track_count || 0) - (a.track_count || 0));
+              state.setSetArtists(artists);
+            }
+            const listEl = card.querySelector('.artist-list');
+            renderArtistNodes(listEl, artists || [], state.artistExclusions, card);
+          }
+          break;
+        }
+
+        case 'apply-exclusions': {
+          const state = card._getArtistState();
+          if (!state.setArtists) break;
+          const newIds = state.setArtists.filter(a => !state.artistExclusions.has(a.id)).map(a => a.id);
+          staging.update(selection.id, {
+            artistIds: newIds,
+            current_count: { artists: newIds.length, tracks: selection.current_count?.tracks || 0 }
+          });
+          showToast(`${state.artistExclusions.size} artist${state.artistExclusions.size !== 1 ? 's' : ''} removed`);
+          break;
+        }
+      }
+    }
+
+    // === Filter Modal ===
+    function openFilterModal(selection) {
+      currentEditingSetId = selection.id;
+      currentFilters = JSON.parse(JSON.stringify(selection.filters || {}));
+
+      filterModalName.textContent = selection.alias || selection.name;
+
+      // Show/hide source-specific filters
+      document.getElementById('graph-filters').style.display =
+        selection.source?.tab === 'artist_graph' ? 'block' : 'none';
+      document.getElementById('embedding-filters').style.display =
+        selection.source?.tab === 'embedding' ? 'block' : 'none';
+
+      // Reset all sliders
+      filterModal.querySelectorAll('.range-filter').forEach(filter => {
+        const filterName = filter.dataset.filter;
+        const minInput = filter.querySelector('[data-type="min"]');
+        const maxInput = filter.querySelector('[data-type="max"]');
+        const singleInput = filter.querySelector('.dual-range__input:not([data-type])');
+
+        // Reset to default values
+        if (minInput && maxInput) {
+          minInput.value = minInput.min;
+          maxInput.value = maxInput.max;
+          updateDualRangeDisplay(filter, minInput.min, maxInput.max, minInput.min, maxInput.max);
+        } else if (singleInput) {
+          singleInput.value = singleInput.min;
+        }
+
+        filter.querySelector('.range-filter__value').textContent = '(off)';
+        filter.querySelector('.range-filter__value').classList.remove('range-filter__value--active');
+      });
+
+      // Apply current filters to UI
+      applyFiltersToUI(currentFilters);
+
+      // Update preview
+      updateFilterPreview(selection);
+
+      filterModal.classList.add('filter-modal--open');
+    }
+
+    function applyFiltersToUI(filters) {
+      if (filters.audio) {
+        for (const [key, range] of Object.entries(filters.audio)) {
+          const filter = filterModal.querySelector(`[data-filter="${key}"]`);
+          if (filter && range) {
+            const minInput = filter.querySelector('[data-type="min"]');
+            const maxInput = filter.querySelector('[data-type="max"]');
+            if (minInput && maxInput) {
+              minInput.value = key === 'tempo' ? range[0] : range[0] * 100;
+              maxInput.value = key === 'tempo' ? range[1] : range[1] * 100;
+              updateDualRangeDisplay(filter, minInput.value, maxInput.value, minInput.min, maxInput.max);
+              updateFilterValueLabel(filter, key, range[0], range[1]);
+            }
+          }
+        }
+      }
+
+      if (filters.metadata) {
+        if (filters.metadata.decade) {
+          const filter = filterModal.querySelector('[data-filter="decade"]');
+          if (filter) {
+            const minInput = filter.querySelector('[data-type="min"]');
+            const maxInput = filter.querySelector('[data-type="max"]');
+            minInput.value = filters.metadata.decade[0];
+            maxInput.value = filters.metadata.decade[1];
+            updateDualRangeDisplay(filter, minInput.value, maxInput.value, 1900, 2020);
+            filter.querySelector('.range-filter__value').textContent = `${filters.metadata.decade[0]}s - ${filters.metadata.decade[1]}s`;
+            filter.querySelector('.range-filter__value').classList.add('range-filter__value--active');
+          }
+        }
+        if (filters.metadata.trackCount) {
+          const filter = filterModal.querySelector('[data-filter="trackCount"]');
+          if (filter) {
+            const [min, max] = filters.metadata.trackCount;
+            const minInput = filter.querySelector('[data-type="min"]');
+            const maxInput = filter.querySelector('[data-type="max"]');
+            minInput.value = min;
+            maxInput.value = max;
+            updateDualRangeDisplay(filter, min, max, 1, 100);
+            filter.querySelector('.range-filter__value').textContent = `${min} – ${max} tracks`;
+            filter.querySelector('.range-filter__value').classList.add('range-filter__value--active');
+          }
+        }
+      }
+    }
+
+    function updateDualRangeDisplay(filter, minVal, maxVal, absMin, absMax) {
+      const fill = filter.querySelector('.dual-range__fill');
+      const range = absMax - absMin;
+      const leftPct = ((minVal - absMin) / range) * 100;
+      const rightPct = ((maxVal - absMin) / range) * 100;
+      fill.style.left = `${leftPct}%`;
+      fill.style.width = `${rightPct - leftPct}%`;
+    }
+
+    function updateFilterValueLabel(filter, key, minVal, maxVal) {
+      const label = filter.querySelector('.range-filter__value');
+      if (key === 'tempo') {
+        label.textContent = `${minVal} - ${maxVal} BPM`;
+      } else {
+        label.textContent = `${minVal.toFixed(2)} - ${maxVal.toFixed(2)}`;
+      }
+      label.classList.add('range-filter__value--active');
+    }
+
+    function updateFilterPreview(selection) {
+      // Apply current filters to get preview count
+      const filtered = applyFilters(selection.artistIds || [], currentFilters);
+      filterPreview.textContent = `${filtered.length} artists`;
+    }
+
+    function applyFilters(artistIds, filters) {
+      if (!artistsData.length) return artistIds;
+
+      let artists = artistsData.filter(a => artistIds.includes(a.id));
+
+      // Audio filters
+      if (filters.audio) {
+        for (const [key, range] of Object.entries(filters.audio)) {
+          if (range && (range[0] > 0 || range[1] < 1 || key === 'tempo')) {
+            artists = artists.filter(a => {
+              let val = a.audio_profile?.[key] ?? null;
+              if (val == null) return true; // include if no data
+              // Tempo is stored 0-1 (÷200 BPM), convert filter range from BPM to 0-1
+              if (key === 'tempo') val = val * 200;
+              return val >= range[0] && val <= range[1];
+            });
+          }
+        }
+      }
+
+      // Metadata filters
+      if (filters.metadata) {
+        if (filters.metadata.decade) {
+          artists = artists.filter(a => {
+            const year = a.avg_year;
+            if (!year) return false;
+            const decade = Math.floor(year / 10) * 10;
+            return decade >= filters.metadata.decade[0] && decade <= filters.metadata.decade[1];
+          });
+        }
+
+        if (filters.metadata.trackCount) {
+          const [minT, maxT] = filters.metadata.trackCount;
+          artists = artists.filter(a => {
+            const tc = a.track_count || 0;
+            return tc >= minT && tc <= maxT;
+          });
+        }
+      }
+
+      return artists.map(a => a.id);
+    }
+
+    // === Inline Filter Helpers ===
+    function readInlineFilters(card) {
+      const filters = { audio: {}, metadata: {} };
+      card.querySelectorAll('.slider-row[data-filter]').forEach(row => {
+        const minInput = row.querySelector('.range-min');
+        const maxInput = row.querySelector('.range-max');
+        if (!minInput || !maxInput) return;
+        const mn = parseFloat(minInput.value);
+        const mx = parseFloat(maxInput.value);
+        const absMin = parseFloat(minInput.min);
+        const absMax = parseFloat(maxInput.max);
+        if (mn === absMin && mx === absMax) return; // default — skip
+        if (row.dataset.cat === 'audio') {
+          filters.audio[row.dataset.filter] = [mn / 100, mx / 100];
+        } else if (row.dataset.cat === 'metadata') {
+          filters.metadata[row.dataset.filter] = [mn, mx];
+        }
+      });
+      return filters;
+    }
+
+    function applyInlineFilters(artistIds, filters, mode) {
+      if (!artistsData.length) return artistIds;
+      let artists = artistsData.filter(a => artistIds.includes(a.id) || artistIds.includes(a.name));
+      const hasFilters = Object.keys(filters.audio || {}).length + Object.keys(filters.metadata || {}).length > 0;
+      if (!hasFilters) return artists.map(a => a.id);
+      const matchFn = (a) => {
+        for (const [key, range] of Object.entries(filters.audio || {})) {
+          const val = a.audio_profile?.[key] ?? null;
+          if (val == null) continue;
+          if (val < range[0] || val > range[1]) return false;
+        }
+        if (filters.metadata?.decade) {
+          const year = a.avg_year;
+          if (year) {
+            const decade = Math.floor(year / 10) * 10;
+            if (decade < filters.metadata.decade[0] || decade > filters.metadata.decade[1]) return false;
+          }
+        }
+        return true;
+      };
+      return (mode === 'exclude' ? artists.filter(a => !matchFn(a)) : artists.filter(matchFn)).map(a => a.id);
+    }
+
+    function updateInlinePreview(card, selection) {
+      const previewEl = card.querySelector('.ifilter-preview');
+      if (!previewEl) return;
+      const filters = readInlineFilters(card);
+      const mode = card.querySelector('.mode-pill--active')?.dataset.mode || 'include';
+      const origIds = selection.original_count?.artistIds || selection.artistIds || [];
+      const filtered = applyInlineFilters(origIds, filters, mode);
+      previewEl.textContent = `${filtered.length} artists`;
+    }
+
+    // === Set profile helpers ===
+    function computeSetProfile(selection) {
+      const ids = new Set(selection.artistIds || []);
+      const artists = artistsData.filter(a => ids.has(a.id) || ids.has(a.name));
+      const keys = ['energy', 'danceability', 'valence', 'acousticness', 'instrumentalness'];
+      const sums = {}, counts = {};
+      keys.forEach(k => { sums[k] = 0; counts[k] = 0; });
+      artists.forEach(a => keys.forEach(k => {
+        const v = a.audio_profile?.[k];
+        if (v != null) { sums[k] += v; counts[k]++; }
+      }));
+      const out = {};
+      keys.forEach(k => out[k] = counts[k] > 0 ? sums[k] / counts[k] : 0);
+      return out;
+    }
+
+    function drawRadarPolygon(ctx, cx, cy, r, angles, vals, fill, stroke) {
+      ctx.beginPath();
+      angles.forEach((a, i) => {
+        const v = Math.max(0, Math.min(1, vals[i]));
+        const x = cx + r * v * Math.cos(a), y = cy + r * v * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+
+    function drawRadarChart(canvas, profile, filterProfile) {
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const cx = W / 2, cy = H / 2;
+      const r = Math.min(W, H) / 2 - 22;
+      const axes = [
+        { key: 'energy',           label: 'Nrg' },
+        { key: 'danceability',     label: 'Dnc' },
+        { key: 'valence',          label: 'Val' },
+        { key: 'acousticness',     label: 'Acs' },
+        { key: 'instrumentalness', label: 'Ins' },
+      ];
+      const n = axes.length;
+      const angles = axes.map((_, i) => -Math.PI / 2 + (2 * Math.PI * i) / n);
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid rings
+      for (let ring = 1; ring <= 4; ring++) {
+        const rr = r * ring / 4;
+        ctx.beginPath();
+        angles.forEach((a, i) => {
+          const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      // Axis spokes
+      angles.forEach(a => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      });
+
+      // Set profile polygon (purple)
+      drawRadarPolygon(ctx, cx, cy, r, angles, axes.map(ax => profile[ax.key] || 0),
+        'rgba(124,58,237,0.18)', 'rgba(124,58,237,0.7)');
+
+      // Filter midpoint polygon (green overlay)
+      if (filterProfile) {
+        drawRadarPolygon(ctx, cx, cy, r, angles, axes.map(ax => filterProfile[ax.key] || 0),
+          'rgba(52,211,153,0.12)', 'rgba(52,211,153,0.65)');
+      }
+
+      // Dots + labels
+      ctx.font = '9px sans-serif';
+      angles.forEach((a, i) => {
+        const val = Math.max(0, Math.min(1, profile[axes[i].key] || 0));
+        const dx = cx + r * val * Math.cos(a), dy = cy + r * val * Math.sin(a);
+        ctx.beginPath();
+        ctx.arc(dx, dy, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(124,58,237,0.9)';
+        ctx.fill();
+        const lx = cx + (r + 12) * Math.cos(a), ly = cy + (r + 12) * Math.sin(a);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(axes[i].label, lx, ly);
+      });
+    }
+
+    const ARTIST_PAGE = 20;
+
+    function renderArtistNodes(listEl, artists, exclusions, card, showAll = false) {
+      const visible = showAll ? artists : artists.slice(0, ARTIST_PAGE);
+      const rest = artists.length - ARTIST_PAGE;
+
+      listEl.innerHTML = visible.map(a => `
+        <div class="ar-node${exclusions.has(a.id) ? ' ar-node--excluded' : ''}" data-id="${escapeHtml(a.id)}">
+          <div class="ar-row">
+            <span class="ar-chev">&#9654;</span>
+            <input type="checkbox" class="ar-cb" ${!exclusions.has(a.id) ? 'checked' : ''}>
+            <span class="ar-name">${escapeHtml(a.name || a.id)}</span>
+            <span class="ar-meta">${a.track_count || 0}t${a.avg_year ? ' · ' + (Math.floor(a.avg_year / 10) * 10) + 's' : ''}</span>
+          </div>
+          <div class="ar-tracks">
+            <div class="ar-loading" style="display:none">Loading…</div>
+            <div class="ar-tracklist"></div>
+          </div>
+        </div>`).join('');
+
+      if (!showAll && rest > 0) {
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.className = 'artist-show-more';
+        showMoreBtn.textContent = `Show ${rest} more ▾`;
+        showMoreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showMoreBtn.remove();
+          const remaining = artists.slice(ARTIST_PAGE);
+          const fragment = document.createElement('div');
+          fragment.innerHTML = remaining.map(a => `
+            <div class="ar-node${exclusions.has(a.id) ? ' ar-node--excluded' : ''}" data-id="${escapeHtml(a.id)}">
+              <div class="ar-row">
+                <span class="ar-chev">&#9654;</span>
+                <input type="checkbox" class="ar-cb" ${!exclusions.has(a.id) ? 'checked' : ''}>
+                <span class="ar-name">${escapeHtml(a.name || a.id)}</span>
+                <span class="ar-meta">${a.track_count || 0}t${a.avg_year ? ' · ' + (Math.floor(a.avg_year / 10) * 10) + 's' : ''}</span>
+              </div>
+              <div class="ar-tracks">
+                <div class="ar-loading" style="display:none">Loading…</div>
+                <div class="ar-tracklist"></div>
+              </div>
+            </div>`).join('');
+          // attach handlers to newly added nodes
+          fragment.querySelectorAll('.ar-cb').forEach(cb => {
+            cb.addEventListener('change', (e2) => {
+              e2.stopPropagation();
+              const node = cb.closest('.ar-node');
+              const id = node.dataset.id;
+              if (cb.checked) { exclusions.delete(id); node.classList.remove('ar-node--excluded'); }
+              else { exclusions.add(id); node.classList.add('ar-node--excluded'); }
+              const exclEl = card.querySelector('.artist-excl-ct');
+              if (exclEl) exclEl.textContent = exclusions.size > 0 ? `${exclusions.size} to remove` : '';
+            });
+          });
+          fragment.querySelectorAll('.ar-row').forEach(row => {
+            row.addEventListener('click', async (e2) => {
+              if (e2.target.classList.contains('ar-cb')) return;
+              const node = row.parentElement;
+              const isOpen = node.classList.toggle('ar-node--open');
+              if (isOpen && !node.querySelector('.ar-tracklist').children.length) {
+                const loading = node.querySelector('.ar-loading');
+                loading.style.display = '';
+                try {
+                  const tracks = await api.getArtistTracks(node.dataset.id);
+                  node.querySelector('.ar-tracklist').innerHTML = (tracks || []).map(t =>
+                    `<div class="ar-track">${escapeHtml(t.name || t.title || t.id)}</div>`).join('');
+                } catch { node.querySelector('.ar-tracklist').innerHTML = '<div class="ar-track ar-track--err">Failed to load</div>'; }
+                loading.style.display = 'none';
+              }
+            });
+          });
+          while (fragment.firstChild) listEl.appendChild(fragment.firstChild);
+        });
+        listEl.appendChild(showMoreBtn);
+      }
+
+      // Checkbox handlers
+      listEl.querySelectorAll('.ar-cb').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const node = cb.closest('.ar-node');
+          const id = node.dataset.id;
+          if (cb.checked) { exclusions.delete(id); node.classList.remove('ar-node--excluded'); }
+          else { exclusions.add(id); node.classList.add('ar-node--excluded'); }
+          const exclEl = card.querySelector('.artist-excl-ct');
+          if (exclEl) exclEl.textContent = exclusions.size > 0 ? `${exclusions.size} to remove` : '';
+        });
+      });
+
+      // Expand artist → load tracks
+      listEl.querySelectorAll('.ar-row').forEach(row => {
+        row.addEventListener('click', async (e) => {
+          if (e.target.classList.contains('ar-cb')) return;
+          const node = row.parentElement;
+          const artistId = node.dataset.id;
+          const tracksDiv = node.querySelector('.ar-tracks');
+          const trackList = node.querySelector('.ar-tracklist');
+          const loadingEl = node.querySelector('.ar-loading');
+          const chev = row.querySelector('.ar-chev');
+
+          // Close other open artists in same list
+          listEl.querySelectorAll('.ar-node--open').forEach(other => {
+            if (other !== node) {
+              other.classList.remove('ar-node--open');
+              other.querySelector('.ar-chev').style.transform = '';
+            }
+          });
+
+          const isOpen = node.classList.toggle('ar-node--open');
+          chev.style.transform = isOpen ? 'rotate(90deg)' : '';
+
+          if (isOpen && !trackList.innerHTML.trim()) {
+            loadingEl.style.display = '';
+            try {
+              const res = await api.getArtistTracks(artistId);
+              loadingEl.style.display = 'none';
+              const tracks = res.tracks || [];
+              trackList.innerHTML = tracks.length
+                ? tracks.map(t => `
+                  <div class="ar-track">
+                    <span class="ar-track__dot">&#9679;</span>
+                    <span class="ar-track__name">${escapeHtml(t.track_name || '(unknown)')}</span>
+                    <span class="ar-track__year">${(t.album_date || '').slice(0, 4)}</span>
+                  </div>`).join('')
+                : '<div class="ar-loading">No tracks found</div>';
+            } catch {
+              loadingEl.style.display = 'none';
+              trackList.innerHTML = '<div class="ar-loading">Failed to load tracks</div>';
+            }
+          }
+        });
+      });
+
+      // Init counter
+      const exclEl = card.querySelector('.artist-excl-ct');
+      if (exclEl) exclEl.textContent = exclusions.size > 0 ? `${exclusions.size} to remove` : '';
+    }
+
+    function readSliderFilterProfile(card) {
+      const profile = {};
+      AUDIO_FEATURES.forEach(f => {
+        const row = card.querySelector(`.slider-row[data-filter="${f.key}"]`);
+        if (!row) return;
+        const mn = parseFloat(row.querySelector('.range-min').value) / 100;
+        const mx = parseFloat(row.querySelector('.range-max').value) / 100;
+        profile[f.key] = (mn + mx) / 2;
+      });
+      const hasFilter = AUDIO_FEATURES.some(f => {
+        const row = card.querySelector(`.slider-row[data-filter="${f.key}"]`);
+        if (!row) return false;
+        const mn = parseFloat(row.querySelector('.range-min').value);
+        const mx = parseFloat(row.querySelector('.range-max').value);
+        return mn > 0 || mx < 100;
+      });
+      return hasFilter ? profile : null;
+    }
+
+    // Filter modal event handlers
+    filterClose.addEventListener('click', () => {
+      filterModal.classList.remove('filter-modal--open');
+    });
+
+    filterModal.addEventListener('click', (e) => {
+      if (e.target === filterModal) {
+        filterModal.classList.remove('filter-modal--open');
+      }
+    });
+
+    filterReset.addEventListener('click', () => {
+      currentFilters = {};
+      const selection = staging.get(currentEditingSetId);
+      if (selection) {
+        applyFiltersToUI({});
+        updateFilterPreview(selection);
+      }
+    });
+
+    filterApply.addEventListener('click', () => {
+      const selection = staging.get(currentEditingSetId);
+      if (!selection) return;
+
+      // Collect filter values from UI
+      const newFilters = { audio: {}, metadata: {} };
+
+      filterModal.querySelectorAll('.range-filter').forEach(filter => {
+        const filterName = filter.dataset.filter;
+        const minInput = filter.querySelector('[data-type="min"]');
+        const maxInput = filter.querySelector('[data-type="max"]');
+
+        if (minInput && maxInput) {
+          const minVal = parseFloat(minInput.value);
+          const maxVal = parseFloat(maxInput.value);
+          const absMin = parseFloat(minInput.min);
+          const absMax = parseFloat(maxInput.max);
+
+          // Only save if not at default values
+          if (minVal > absMin || maxVal < absMax) {
+            if (['energy', 'danceability', 'valence', 'acousticness', 'instrumentalness'].includes(filterName)) {
+              newFilters.audio[filterName] = [minVal / 100, maxVal / 100];
+            } else if (filterName === 'tempo') {
+              newFilters.audio.tempo = [minVal, maxVal];
+            } else if (filterName === 'decade') {
+              newFilters.metadata.decade = [minVal, maxVal];
+            } else if (filterName === 'trackCount') {
+              newFilters.metadata.trackCount = [minVal, maxVal];
+            }
+          }
+        }
+      });
+
+      // Apply filters and update selection
+      const filteredIds = applyFilters(selection.original_count?.artistIds || selection.artistIds, newFilters);
+
+      staging.update(currentEditingSetId, {
+        filters: newFilters,
+        artistIds: filteredIds,
+        current_count: {
+          artists: filteredIds.length,
+          tracks: 0
+        }
+      });
+
+      filterModal.classList.remove('filter-modal--open');
+      showToast('Filters applied');
+    });
+
+    // Dual range slider handlers
+    filterModal.querySelectorAll('.dual-range').forEach(range => {
+      const minInput = range.querySelector('[data-type="min"]');
+      const maxInput = range.querySelector('[data-type="max"]');
+      const filter = range.closest('.range-filter');
+
+      if (minInput && maxInput) {
+        const updateRange = () => {
+          let minVal = parseInt(minInput.value);
+          let maxVal = parseInt(maxInput.value);
+
+          if (minVal > maxVal) {
+            [minVal, maxVal] = [maxVal, minVal];
+            minInput.value = minVal;
+            maxInput.value = maxVal;
+          }
+
+          updateDualRangeDisplay(filter, minVal, maxVal, minInput.min, maxInput.max);
+
+          const filterName = filter.dataset.filter;
+          if (filterName === 'tempo') {
+            updateFilterValueLabel(filter, filterName, minVal, maxVal);
+          } else if (filterName === 'decade') {
+            filter.querySelector('.range-filter__value').textContent = `${minVal}s - ${maxVal}s`;
+            filter.querySelector('.range-filter__value').classList.add('range-filter__value--active');
+          } else if (filterName === 'trackCount') {
+            filter.querySelector('.range-filter__value').textContent = `${minVal} – ${maxVal} tracks`;
+            filter.querySelector('.range-filter__value').classList.add('range-filter__value--active');
+          } else {
+            updateFilterValueLabel(filter, filterName, minVal / 100, maxVal / 100);
+          }
+
+          // Update preview with debounce
+          clearTimeout(filter._debounce);
+          filter._debounce = setTimeout(() => {
+            const selection = staging.get(currentEditingSetId);
+            if (selection) updateFilterPreview(selection);
+          }, 300);
+        };
+
+        minInput.addEventListener('input', updateRange);
+        maxInput.addEventListener('input', updateRange);
+      }
+    });
+
+    // Filter group toggles
+    filterModal.querySelectorAll('.filter-group__header').forEach(header => {
+      header.addEventListener('click', () => {
+        header.closest('.filter-group').classList.toggle('filter-group--open');
+      });
+    });
+
+    // === Metrics ===
+    function updateMetrics(selections) {
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+      if (!selections.length) {
+        set('metric-artists', '0'); set('metric-tracks', '0');
+        ['metric-duplicates','metric-avg-tracks','metric-genre-entropy',
+         'metric-decade-span','metric-top-genre','metric-top-decade',
+         'metric-avg-energy','metric-avg-tempo'].forEach(id => set(id, '--'));
+        return;
+      }
+
+      const allArtistIds = new Set(selections.flatMap(s => s.artistIds || []));
+      const artists = artistsData.filter(a => allArtistIds.has(a.id) || allArtistIds.has(a.name));
+      const totalTracks = artists.reduce((sum, a) => sum + (a.track_count || 0), 0);
+
+      set('metric-artists', artists.length.toLocaleString());
+      set('metric-tracks', totalTracks.toLocaleString());
+
+      // Collect genre/decade/audio stats
+      const genres = {}, decades = {};
+      let totalEnergy = 0, energyCount = 0, totalTempo = 0, tempoCount = 0;
+
+      artists.forEach(a => {
+        (a.genres || []).forEach(g => genres[g] = (genres[g] || 0) + 1);
+        const year = a.avg_year;
+        if (year) { const d = Math.floor(year / 10) * 10; decades[d] = (decades[d] || 0) + 1; }
+        const e = a.audio_profile?.energy ?? null;
+        if (e != null) { totalEnergy += e; energyCount++; }
+        const t = a.audio_profile?.tempo ?? null;
+        if (t != null) { totalTempo += t * 200; tempoCount++; }
+      });
+
+      // Quality
+      set('metric-duplicates', '0');
+      set('metric-avg-tracks', artists.length > 0 ? (totalTracks / artists.length).toFixed(1) : '--');
+
+      // Diversity
+      const entropy = computeEntropy(Object.values(genres));
+      const entropyLabel = entropy > 3 ? 'High' : entropy > 2 ? 'Med' : 'Low';
+      set('metric-genre-entropy', `${entropy.toFixed(2)} (${entropyLabel})`);
+
+      const decadeKeys = Object.keys(decades).map(Number).sort();
+      set('metric-decade-span', decadeKeys.length > 1
+        ? `${decadeKeys[decadeKeys.length - 1] - decadeKeys[0]} yrs` : '--');
+
+      // Dominant
+      const topGenre = Object.entries(genres).sort((a, b) => b[1] - a[1])[0];
+      set('metric-top-genre', topGenre
+        ? `${topGenre[0]} (${((topGenre[1] / artists.length) * 100).toFixed(0)}%)` : '--');
+
+      const topDecade = Object.entries(decades).sort((a, b) => b[1] - a[1])[0];
+      set('metric-top-decade', topDecade
+        ? `${topDecade[0]}s (${((topDecade[1] / artists.length) * 100).toFixed(0)}%)` : '--');
+
+      set('metric-avg-energy', energyCount > 0 ? (totalEnergy / energyCount).toFixed(2) : '--');
+      set('metric-avg-tempo', tempoCount > 0 ? `${Math.round(totalTempo / tempoCount)} BPM` : '--');
+    }
+
+    function computeEntropy(values) {
+      const total = values.reduce((a, b) => a + b, 0);
+      if (total === 0) return 0;
+      return values.reduce((h, c) => c === 0 ? h : h - (c / total) * Math.log2(c / total), 0);
+    }
+
+    function attachMetricsSectionHandlers() {} // no-op — flat cards, no accordion
+
+    // === Export Modal ===
+    const exportModal = document.getElementById('export-modal');
+    const exportModalClose = document.getElementById('export-close');
+    const exportNameInput = document.getElementById('export-name');
+    const exportDescInput = document.getElementById('export-description');
+    const exportCountEl = document.getElementById('export-count');
+    const spotifyStatusEl = document.getElementById('spotify-status');
+    const clientIdPrompt = document.getElementById('client-id-prompt');
+    const clientIdInput = document.getElementById('client-id-input');
+    const saveClientIdBtn = document.getElementById('save-client-id');
+    const spotifyActions = document.getElementById('spotify-actions');
+    const spotifyCreateBtn = document.getElementById('spotify-create-btn');
+    const spotifyDisconnectBtn = document.getElementById('spotify-disconnect');
+    const spotifyProgress = document.getElementById('spotify-progress');
+    const exportCsvCleanBtn = document.getElementById('export-csv-clean');
+    const exportCsvDebugBtn = document.getElementById('export-csv-debug');
+
+    // exportArtistIds is set on open; track IDs are fetched lazily from the API
+    // (staging stores artistIds only — trackIds are always empty from explore pages)
+    let exportArtistIds = [];
+
+    function showExportProgress(msg, type = '') {
+      spotifyProgress.style.display = 'block';
+      spotifyProgress.className = `export-progress${type ? ' export-progress--' + type : ''}`;
+      spotifyProgress.textContent = msg;
+    }
+
+    function refreshSpotifyUI(trackCount = null) {
+      const clientId = spotifyAuth.getClientId();
+      const user = spotifyAuth.getStoredUser();
+      spotifyProgress.style.display = 'none';
+
+      if (!clientId) {
+        clientIdPrompt.style.display = 'block';
+        spotifyActions.style.display = 'none';
+        spotifyStatusEl.textContent = '';
+      } else if (user) {
+        clientIdPrompt.style.display = 'none';
+        spotifyActions.style.display = 'flex';
+        spotifyStatusEl.textContent = `Connected as ${user.name}`;
+        spotifyStatusEl.className = 'export-status export-status--connected';
+      } else {
+        clientIdPrompt.style.display = 'none';
+        spotifyActions.style.display = 'flex';
+        spotifyStatusEl.textContent = 'Not connected';
+        spotifyStatusEl.className = 'export-status';
+      }
+      // Only disable if we know there are 0 tracks (null = still loading = leave enabled)
+      if (trackCount !== null) spotifyCreateBtn.disabled = trackCount === 0;
+    }
+
+    exportBtn.addEventListener('click', async () => {
+      const result = staging.getCombinedResult();
+      exportArtistIds = result.artistIds || [];
+
+      if (exportArtistIds.length === 0) {
+        showToast('No artists in staging. Add selections first.', 'error');
+        return;
+      }
+
+      const date = new Date().toISOString().slice(0, 10);
+      exportNameInput.value = `My Selection · ${date}`;
+      exportDescInput.value = '';
+      exportCountEl.textContent = `Loading tracks from ${exportArtistIds.length} artists...`;
+      exportCsvCleanBtn.disabled = true;
+      exportCsvDebugBtn.disabled = true;
+      refreshSpotifyUI(null);
+      exportModal.classList.add('export-modal--open');
+
+      // Fetch total track count from artist details
+      try {
+        const res = await api.getArtistsByIds(exportArtistIds);
+        const artists = Object.values(res.artists || {}).filter(Boolean);
+        const totalTracks = artists.reduce((sum, a) => sum + (a.track_count || 0), 0);
+        exportCountEl.textContent = `~${totalTracks} tracks from ${exportArtistIds.length} artists`;
+        exportCsvCleanBtn.disabled = totalTracks === 0;
+        exportCsvDebugBtn.disabled = totalTracks === 0;
+        refreshSpotifyUI(totalTracks);
+      } catch { /* non-critical — proceed anyway */ }
+    });
+
+    exportModalClose.addEventListener('click', () => exportModal.classList.remove('export-modal--open'));
+    exportModal.addEventListener('click', (e) => { if (e.target === exportModal) exportModal.classList.remove('export-modal--open'); });
+
+    saveClientIdBtn.addEventListener('click', () => {
+      const id = clientIdInput.value.trim();
+      if (!id) return;
+      spotifyAuth.setClientId(id);
+      clientIdInput.value = '';
+      showToast('Client ID saved');
+      refreshSpotifyUI();
+    });
+
+    spotifyDisconnectBtn.addEventListener('click', () => {
+      spotifyAuth.clearAuth();
+      showToast('Disconnected from Spotify');
+      refreshSpotifyUI();
+    });
+
+    /** Fetch all tracks for the current export by iterating over selected artists. */
+    async function fetchAllExportTracks(onProgress) {
+      const allTracks = [];
+      for (let i = 0; i < exportArtistIds.length; i++) {
+        const artistId = exportArtistIds[i];
+        try {
+          const res = await api.getArtistTracks(artistId);
+          allTracks.push(...(res.tracks || []).map(t => ({ ...t, artist_name: t.artist_name || res.artist_name })));
+        } catch { /* skip failed artists */ }
+        if (onProgress) onProgress(i + 1, exportArtistIds.length);
+      }
+      return allTracks;
+    }
+
+    spotifyCreateBtn.addEventListener('click', async () => {
+      spotifyCreateBtn.disabled = true;
+      const name = exportNameInput.value.trim() || `My Selection · ${new Date().toISOString().slice(0, 10)}`;
+      const description = exportDescInput.value.trim();
+      const isPublic = document.querySelector('[name=export-visibility]:checked')?.value === 'public';
+      try {
+        showExportProgress('Connecting to Spotify...');
+        await spotifyApi.ensureAuth();
+        const user = await spotifyApi.getMe();
+        spotifyAuth.setStoredUser(user);
+        refreshSpotifyUI();
+        showExportProgress(`Creating playlist for ${user.display_name || user.id}...`);
+        const playlist = await spotifyApi.createPlaylist(user.id, name, description, isPublic);
+        showExportProgress(`Fetching tracks (0 / ${exportArtistIds.length} artists)...`);
+        const tracks = await fetchAllExportTracks((done, total) => {
+          showExportProgress(`Fetching tracks (${done} / ${total} artists)...`);
+        });
+        const uris = tracks.map(t => `spotify:track:${t.track_id}`).filter(u => u !== 'spotify:track:');
+        showExportProgress(`Adding ${uris.length} tracks to playlist...`);
+        await spotifyApi.addTracksToPlaylist(playlist.id, uris, (added, total) => {
+          showExportProgress(`Adding tracks (${added} / ${total})...`);
+        });
+        showExportProgress(`Playlist created! ${uris.length} tracks added.`, 'success');
+        showToast('Playlist created in Spotify');
+      } catch (e) {
+        showExportProgress(e.message, 'error');
+        showToast(e.message, 'error');
+      } finally {
+        spotifyCreateBtn.disabled = false;
+      }
+    });
+
+    function csvEscape(val) {
+      if (val == null) return '';
+      const s = String(val);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+
+    function downloadFile(content, filename) {
+      const blob = new Blob([content], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    exportCsvCleanBtn.addEventListener('click', async () => {
+      exportCsvCleanBtn.disabled = true;
+      exportCsvCleanBtn.textContent = 'Loading...';
+      try {
+        const tracks = await fetchAllExportTracks();
+        const rows = [['title','artist','album','isrc'].join(',')];
+        for (const t of tracks) rows.push([t.track_name, t.artist_name || '', t.album_name, t.isrc].map(csvEscape).join(','));
+        downloadFile(rows.join('\n'), `playlist_${new Date().toISOString().slice(0,10)}.csv`);
+        showToast(`CSV exported — ${tracks.length} tracks`);
+      } catch (e) {
+        showToast(`Export failed: ${e.message}`, 'error');
+      } finally {
+        exportCsvCleanBtn.disabled = false;
+        exportCsvCleanBtn.textContent = 'Export CSV';
+      }
+    });
+
+    exportCsvDebugBtn.addEventListener('click', async () => {
+      exportCsvDebugBtn.disabled = true;
+      exportCsvDebugBtn.textContent = 'Loading...';
+      try {
+        const tracks = await fetchAllExportTracks();
+        const rows = [['title','artist','album','isrc','year','spotify_uri','energy','danceability','valence','tempo'].join(',')];
+        for (const t of tracks) rows.push([
+          t.track_name, t.artist_name || '', t.album_name, t.isrc,
+          (t.album_date || '').slice(0, 4),
+          t.track_id ? `spotify:track:${t.track_id}` : '',
+          t.energy?.toFixed(3)??'', t.danceability?.toFixed(3)??'', t.valence?.toFixed(3)??'', t.tempo?.toFixed(1)??''
+        ].map(csvEscape).join(','));
+        downloadFile(rows.join('\n'), `playlist_debug_${new Date().toISOString().slice(0,10)}.csv`);
+        showToast(`Debug CSV exported — ${tracks.length} tracks`);
+      } catch (e) {
+        showToast(`Export failed: ${e.message}`, 'error');
+      } finally {
+        exportCsvDebugBtn.disabled = false;
+        exportCsvDebugBtn.textContent = 'Export Debug CSV';
+      }
+    });
+
+    // === Utilities ===
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast toast--${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Initialize
+    init();
+  </script>
+</body>
+</html>

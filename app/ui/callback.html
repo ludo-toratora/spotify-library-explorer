@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Connecting to Spotify...</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #121212; color: #ccc;
+           display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    p { font-size: 14px; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <p>Connecting to Spotify... this window will close automatically.</p>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+
+    if (window.opener) {
+      window.opener.postMessage(
+        { spotifyCallback: true, code, state, error },
+        window.location.origin
+      );
+    }
+
+    // Auto-close after a short delay so user can see the message
+    setTimeout(() => window.close(), 500);
+  </script>
+</body>
+</html>

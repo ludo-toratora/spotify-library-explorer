@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genre Graph | LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/panels.css">
+</head>
+<body>
+  <div class="explore-layout">
+    <!-- Top Navigation -->
+    <nav class="nav">
+      <a href="index.html" class="nav__brand">LibraryExplorer</a>
+      <div class="nav__tabs">
+        <a href="wiki.html" class="nav__tab">Wiki</a>
+        <a href="explore-graph-artist.html" class="nav__tab nav__tab--active">Explore</a>
+        <a href="browse.html" class="nav__tab">Browse</a>
+        <a href="selected.html" class="nav__tab">Selected</a>
+        <a href="settings.html" class="nav__tab">Settings</a>
+      </div>
+    </nav>
+
+    <!-- Sub Navigation -->
+    <div class="subnav">
+      <span class="subnav__label">View:</span>
+      <a href="explore-graph-artist.html" class="pill">Artist Graph</a>
+      <a href="explore-graph-genre.html" class="pill pill--active">Genre Graph</a>
+      <a href="explore-embeddings.html" class="pill">Embedding Map</a>
+      <span class="subnav__sep">|</span>
+      <span class="subnav__label" id="loaded-indicator" style="color: var(--accent); font-size: var(--text-xs);">Loading…</span>
+    </div>
+
+    <!-- Main Three-Panel Area -->
+    <div class="main-area">
+      <!-- Left Panel: Controls -->
+      <aside class="panel panel--left panel--collapsed" id="panel-left">
+        <div class="panel__content">
+          <!-- Search -->
+          <div class="control-section control-section--sticky">
+            <input type="text" class="input input--search" id="search-input" placeholder="Search genres...">
+          </div>
+
+          <!-- Color Mode Pills -->
+          <div class="control-section">
+            <span class="control-label">Color by</span>
+            <div class="color-pills" id="color-pills">
+              <button class="color-pill color-pill--active" data-color="parent_genre" title="Parent genre family">Genre</button>
+              <button class="color-pill" data-color="bridger" title="Bridge genres connecting communities">Bridge</button>
+              <span class="color-pills__sep">|</span>
+              <button class="color-pill" data-color="betweenness" title="Betweenness centrality">Centrality</button>
+              <button class="color-pill" data-color="track_count" title="Track count heatmap">Tracks</button>
+            </div>
+          </div>
+
+          <!-- Actions Section -->
+          <div class="accordion" data-accordion="actions">
+            <button class="accordion__header">
+              <span>Actions</span>
+              <span class="accordion__icon"></span>
+            </button>
+            <div class="accordion__content">
+              <div class="button-row">
+                <button class="btn btn--sm" id="reset-view" title="Reset zoom and pan">Reset View</button>
+                <button class="btn btn--sm" id="add-visible" title="Add artists from all visible genres to staging">Add Visible</button>
+              </div>
+              <div class="control-slider control-slider--labeled" style="margin-top: var(--space-2);">
+                <span class="control-slider__label">Depth</span>
+                <input type="range" id="focus-depth" min="1" max="4" value="1">
+                <span class="control-slider__value" id="focus-depth-value">1</span>
+              </div>
+              <div class="button-row" style="margin-top: var(--space-2);">
+                <button class="btn btn--sm" id="view-connected" title="Show only genres connected to selection">View Connected</button>
+                <button class="btn btn--sm" id="select-connected" title="Add connected genres to selection">Select Connected</button>
+              </div>
+              <div class="button-row" style="margin-top: var(--space-2);">
+                <button class="btn btn--sm" id="clear-focus" title="Clear focus highlight and restore all visible nodes">Clear Focus</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Browse Communities Section -->
+          <div class="accordion accordion--open" data-accordion="browse">
+            <button class="accordion__header">
+              <span>Browse Communities</span>
+              <span class="accordion__icon"></span>
+            </button>
+            <div class="accordion__content">
+              <select class="select select--compact" id="filter-community-select" style="margin-bottom: var(--space-1);">
+                <optgroup label="Genre Graph">
+                  <option value="genre_comm">Genre Community</option>
+                </optgroup>
+                <optgroup label="Artist Graph">
+                  <option value="artist_balanced">Artist (Balanced)</option>
+                  <option value="artist_audio_focused">Artist (Audio)</option>
+                  <option value="artist_genre_focused">Artist (Genre)</option>
+                  <option value="artist_era_focused">Artist (Era)</option>
+                  <option value="artist_audio_era">Artist (Audio+Era)</option>
+                </optgroup>
+                <optgroup label="UMAP Embeddings">
+                  <option value="emb_combined_balanced">Emb: Combined</option>
+                  <option value="emb_audio_default">Emb: Audio</option>
+                  <option value="emb_audio_local">Emb: Audio Local</option>
+                  <option value="emb_audio_global">Emb: Audio Global</option>
+                  <option value="emb_audio_spread">Emb: Audio Spread</option>
+                  <option value="emb_audio_euclidean">Emb: Audio Euclid</option>
+                  <option value="emb_genre">Emb: Genre Only</option>
+                  <option value="emb_era">Emb: Era</option>
+                  <option value="emb_combined_audio">Emb: Audio Heavy</option>
+                  <option value="emb_combined_genre">Emb: Genre Heavy</option>
+                  <option value="emb_combined_era">Emb: Era Heavy</option>
+                  <option value="emb_combined_equal">Emb: Equal</option>
+                </optgroup>
+                <optgroup label="Taxonomy">
+                  <option value="parent_genre">Parent Genre</option>
+                </optgroup>
+              </select>
+              <div class="browse-controls-row">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="match-colors" checked>
+                  Match colors
+                </label>
+                <button class="btn btn--xs" id="show-all-clusters">All</button>
+                <button class="btn btn--xs" id="hide-all-clusters">None</button>
+              </div>
+              <div class="cluster-list" id="cluster-list"></div>
+            </div>
+          </div>
+
+          <!-- Controls Section -->
+          <div class="accordion" data-accordion="controls">
+            <button class="accordion__header">
+              <span>Controls</span>
+              <span class="accordion__icon"></span>
+            </button>
+            <div class="accordion__content">
+              <div class="control-row">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="show-labels" checked>
+                  Labels
+                </label>
+                <label class="control-checkbox">
+                  <input type="checkbox" id="show-edges" checked>
+                  Edges
+                </label>
+              </div>
+              <div class="control-row">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="show-parent-genres" checked>
+                  Parent genres
+                </label>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Size</span>
+                  <input type="range" id="node-size" min="2" max="20" value="4">
+                  <span class="control-slider__value" id="node-size-value">4</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Labels</span>
+                  <input type="range" id="label-threshold" min="0" max="50" value="2">
+                  <span class="control-slider__value" id="label-threshold-value">2</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Edges</span>
+                  <input type="range" id="edge-opacity" min="0" max="100" value="25">
+                  <span class="control-slider__value" id="edge-opacity-value">25%</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Min Tracks</span>
+                  <input type="range" id="min-tracks" min="1" max="50" value="1">
+                  <span class="control-slider__value" id="min-tracks-value">1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Physics Section -->
+          <div class="accordion" data-accordion="physics">
+            <button class="accordion__header">
+              <span>Physics</span>
+              <span class="accordion__icon">&#9654;</span>
+            </button>
+            <div class="accordion__content">
+              <div class="control-group">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="physics-enabled">
+                  Enable physics
+                </label>
+              </div>
+              <div class="control-group">
+                <label class="control-label">Link Strength</label>
+                <div class="control-slider">
+                  <input type="range" id="link-strength" min="0" max="100" value="50">
+                  <span class="control-slider__value" id="link-strength-value">50</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <label class="control-label">Repulsion</label>
+                <div class="control-slider">
+                  <input type="range" id="repulsion" min="0" max="100" value="50">
+                  <span class="control-slider__value" id="repulsion-value">50</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <button class="btn btn--sm" id="reheat-physics">Reheat</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-spacer" id="controls-spacer"></div>
+        </div>
+      </aside>
+
+      <!-- Panel toggle buttons -->
+      <button class="canvas-toggle canvas-toggle--left" id="toggle-left-open" title="Toggle controls">▶</button>
+      <button class="canvas-toggle canvas-toggle--right" id="toggle-right-open" title="Toggle info">◀</button>
+
+      <!-- Canvas Area -->
+      <main class="canvas-area">
+        <div class="canvas-container" id="canvas-container">
+          <canvas id="main-canvas"></canvas>
+          <div class="canvas-placeholder" id="canvas-placeholder">
+            Loading genre graph...
+          </div>
+        </div>
+        <div class="tooltip" id="tooltip" style="display: none;">
+          <div class="tooltip__title" id="tooltip-title"></div>
+          <div id="tooltip-content"></div>
+        </div>
+      </main>
+
+      <!-- Right Panel: Info -->
+      <aside class="panel panel--right panel--collapsed" id="panel-right">
+        <div class="panel__content">
+          <div class="info-section" id="selection-info-section">
+            <div class="info-title">Selected Genres</div>
+            <div id="selection-summary"><div class="text-muted text-sm">Nothing selected</div></div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-title">Graph Overview</div>
+            <div class="stats-grid" id="stats-grid">
+              <div class="stat-item">
+                <div class="stat-item__label">Genres</div>
+                <div class="stat-item__value stat-item__value--accent" id="stat-genres">--</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__label">Edges</div>
+                <div class="stat-item__value stat-item__value--accent" id="stat-edges">--</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__label">Communities</div>
+                <div class="stat-item__value stat-item__value--accent" id="stat-communities">--</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__label">Visible</div>
+                <div class="stat-item__value" id="stat-visible">--</div>
+              </div>
+            </div>
+            <div class="community-sizes" id="community-sizes" style="display:none">
+              <span class="community-sizes__label">Community sizes</span>
+              <div class="community-sizes__chart" id="community-sizes-chart"></div>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Colors</span>
+              <div class="sort-pills" id="legend-sort" style="display:flex;gap:4px;">
+                <button class="sort-pill sort-pill--active" data-sort="count" title="Sort by count">Count</button>
+                <button class="sort-pill" data-sort="alpha" title="Sort alphabetically">A–Z</button>
+              </div>
+            </div>
+            <div class="color-legend" id="color-legend"></div>
+          </div>
+
+          <div class="panel-spacer" id="info-spacer"></div>
+
+          <div class="info-section info-section--hints">
+            <div class="info-title">Controls</div>
+            <ul class="hints-list">
+              <li><kbd>Scroll</kbd> Zoom</li>
+              <li><kbd>Drag</kbd> Pan</li>
+              <li><kbd>Click</kbd> Select genre</li>
+              <li><kbd>Shift</kbd> Box select</li>
+              <li><kbd>S</kbd> Search</li>
+              <li><kbd>E</kbd> Staging</li>
+              <li><kbd>Esc</kbd> Clear</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom Strip -->
+    <div class="bottom-strip" id="bottom-strip" style="position: static !important;">
+      <div class="bottom-strip__info">
+        <div class="bottom-strip__stat"><span id="staging-selections">0</span> sel</div>
+        <div class="bottom-strip__stat"><strong id="staging-artists">0</strong> artists</div>
+        <div class="bottom-strip__stat"><strong id="staging-tracks">0</strong> tracks</div>
+      </div>
+      <div class="bottom-strip__selection" id="selection-bar" style="display: none;">
+        <span class="bottom-strip__selection-info">
+          <strong id="selection-count">0</strong> genres selected
+        </span>
+        <button class="btn btn--sm" id="clear-selection">Clear</button>
+        <button class="btn btn--sm btn--primary" id="add-to-staging">+ Staging</button>
+      </div>
+      <a href="selected.html" class="btn btn--sm">View Selected →</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { staging } from './js/stores/staging.js';
+    import { view } from './js/stores/view.js';
+    import * as api from './js/lib/api.js';
+    import { GraphView } from './js/components/GraphView.js';
+    import { ClusterList } from './js/components/ClusterList.js';
+    import { generateLegend, getCategoryColor } from './js/lib/colors.js';
+
+    // === DOM Elements ===
+    const colorPills = document.querySelectorAll('.color-pill');
+    const filterCommunitySelect = document.getElementById('filter-community-select');
+    const searchInput = document.getElementById('search-input');
+    let currentColorMode = 'community';
+    let filterKey = 'genre_comm'; // Current filter key (decoupled from colorMode)
+
+    // === Community Maps Cache (genre-level: genreName → value) ===
+    // Note: genre nodes have id = genre name, so maps are { genreName: value }
+    const COMM_MAPS = {};
+
+    async function fetchCommMap(key) {
+      if (key in COMM_MAPS) return COMM_MAPS[key];
+      try {
+        if (key.startsWith('artist_')) {
+          const preset = key.slice(7);
+          const data = await api.getGraph(preset);
+          // Raw artistId→community map (used by color rendering)
+          const raw = {};
+          for (const n of (data.nodes || [])) raw[n.id] = n.community;
+          COMM_MAPS[`__${key}_raw__`] = raw;
+          // Genre-level map: genreName → majority artist community (used by filter)
+          const genreArtistComms = {};
+          for (const artist of (data.nodes || [])) {
+            for (const g of (artist.genres || [])) {
+              if (!genreArtistComms[g]) genreArtistComms[g] = {};
+              const c = artist.community;
+              genreArtistComms[g][c] = (genreArtistComms[g][c] || 0) + 1;
+            }
+          }
+          const m = {};
+          for (const [genre, counts] of Object.entries(genreArtistComms)) {
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            if (top) m[genre] = Number(top[0]);
+          }
+          COMM_MAPS[key] = m;
+        } else if (key.startsWith('emb_')) {
+          const preset = key.slice(4);
+          const data = await api.getEmbedding(preset);
+          // Build genre→majority embedding cluster map via artist positions
+          // (each position has genres[] from API enrichment)
+          const genreClusterComms = {};
+          for (const [, pos] of Object.entries(data.positions || {})) {
+            const cluster = pos.cluster ?? 0;
+            for (const g of (pos.genres || [])) {
+              if (!genreClusterComms[g]) genreClusterComms[g] = {};
+              genreClusterComms[g][cluster] = (genreClusterComms[g][cluster] || 0) + 1;
+            }
+          }
+          const m = {};
+          for (const [genre, counts] of Object.entries(genreClusterComms)) {
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            if (top) m[genre] = Number(top[0]);
+          }
+          COMM_MAPS[key] = m;
+        }
+      } catch (e) {
+        console.warn('Failed to load comm map:', key, e);
+        // Don't cache failures — allow retry after recompute
+      }
+      return COMM_MAPS[key];
+    }
+
+    async function applyFilterKey(key) {
+      if (!graphView || !adaptedData) return;
+      const allNodes = adaptedData.nodes;
+      filterCommunitySelect.disabled = true;
+      try {
+        if (key === 'genre_comm') {
+          for (const n of allNodes) n._filter_val = n.community ?? null;
+        } else if (key === 'parent_genre') {
+          // Genre nodes have parent_genres[] array — use first entry
+          for (const n of allNodes) n._filter_val = (n.parent_genres?.[0] ?? n.parent_genre ?? null);
+        } else if (key.startsWith('artist_') || key.startsWith('emb_')) {
+          const map = await fetchCommMap(key);
+          // node.id IS the genre name
+          for (const n of allNodes) n._filter_val = map?.[n.id] ?? null;
+        }
+        // Apply parent genre visibility: hide parent nodes by sentineling their _filter_val
+        if (!showParentGenres) {
+          for (const n of allNodes) {
+            if (n._isParent) n._filter_val = HIDDEN_COMM;
+          }
+        }
+        graphView.setVisibilityField('_filter_val');
+        const visNodes = showParentGenres ? allNodes : allNodes.filter(n => !n._isParent);
+        clusterList.setData(visNodes, '_filter_val');
+        updateStats(graphView.getStats());
+      } finally {
+        filterCommunitySelect.disabled = false;
+      }
+    }
+
+    const panelLeft = document.getElementById('panel-left');
+    const panelRight = document.getElementById('panel-right');
+    const toggleLeft = document.getElementById('toggle-left-open');
+    const toggleRight = document.getElementById('toggle-right-open');
+
+    const canvasContainer = document.getElementById('canvas-container');
+    const canvas = document.getElementById('main-canvas');
+    const canvasPlaceholder = document.getElementById('canvas-placeholder');
+    const tooltip = document.getElementById('tooltip');
+    const tooltipTitle = document.getElementById('tooltip-title');
+    const tooltipContent = document.getElementById('tooltip-content');
+
+    const colorLegend = document.getElementById('color-legend');
+    const statGenres = document.getElementById('stat-genres');
+    const statEdges = document.getElementById('stat-edges');
+    const statCommunities = document.getElementById('stat-communities');
+    const statVisible = document.getElementById('stat-visible');
+
+    const selectionBar = document.getElementById('selection-bar');
+    const selectionCount = document.getElementById('selection-count');
+
+    const stagingSelections = document.getElementById('staging-selections');
+    const stagingArtists = document.getElementById('staging-artists');
+    const stagingTracks = document.getElementById('staging-tracks');
+
+    const sliders = {
+      nodeSize:       { input: document.getElementById('node-size'),       value: document.getElementById('node-size-value') },
+      labelThreshold: { input: document.getElementById('label-threshold'), value: document.getElementById('label-threshold-value') },
+      edgeOpacity:    { input: document.getElementById('edge-opacity'),    value: document.getElementById('edge-opacity-value') },
+      minTracks:      { input: document.getElementById('min-tracks'),      value: document.getElementById('min-tracks-value') },
+      linkStrength:   { input: document.getElementById('link-strength'),   value: document.getElementById('link-strength-value') },
+      repulsion:      { input: document.getElementById('repulsion'),       value: document.getElementById('repulsion-value') },
+    };
+    const showLabelsCheckbox = document.getElementById('show-labels');
+    const showEdgesCheckbox = document.getElementById('show-edges');
+
+    // === State ===
+    let graphView = null;
+    let currentData = null;
+    let adaptedData = null;   // adapted nodes (with parent_genre field) for legend
+    let currentSelection = new Set();
+    // genre id → array of artist ids that have that genre
+    let genreArtistMap = {};
+    // set of genre ids that are parent genres (appear as parent_genres on other nodes)
+    let parentGenreIds = new Set();
+    let showParentGenres = true;
+
+    // === Cluster List ===
+    const clusterListContainer = document.getElementById('cluster-list');
+    const clusterList = new ClusterList(clusterListContainer);
+    clusterList.onVisibilityChange = (visibleValues) => {
+      if (!graphView) return;
+      graphView.visibleCommunities = visibleValues;
+      graphView.updateVisibleNodes();
+      graphView.render();
+      if (graphView.getStats) updateStats(graphView.getStats());
+    };
+
+    document.getElementById('show-all-clusters')?.addEventListener('click', () => clusterList.setAllVisible(true));
+    document.getElementById('hide-all-clusters')?.addEventListener('click', () => clusterList.setAllVisible(false));
+
+    // === Panel State ===
+    const PANEL_STATE_KEY = 'explore_genre_panel_state';
+
+    function loadPanelState() {
+      try {
+        const saved = localStorage.getItem(PANEL_STATE_KEY);
+        if (saved) {
+          const s = JSON.parse(saved);
+          if (s.left) panelLeft.classList.remove('panel--collapsed');
+        }
+      } catch {}
+      updateToggleVisibility();
+    }
+
+    function savePanelState() {
+      localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({
+        left:  !panelLeft.classList.contains('panel--collapsed'),
+        right: !panelRight.classList.contains('panel--collapsed'),
+      }));
+    }
+
+    function updateToggleVisibility() {
+      const lc = panelLeft.classList.contains('panel--collapsed');
+      const rc = panelRight.classList.contains('panel--collapsed');
+      toggleLeft.style.left   = lc ? '0px' : `${panelLeft.offsetWidth}px`;
+      toggleRight.style.right = rc ? '0px' : `${panelRight.offsetWidth}px`;
+      toggleLeft.textContent  = lc ? '▶' : '◀';
+      toggleRight.textContent = rc ? '◀' : '▶';
+    }
+
+    function togglePanel(panel, forceOpen = null) {
+      if (forceOpen === true)       panel.classList.remove('panel--collapsed');
+      else if (forceOpen === false) panel.classList.add('panel--collapsed');
+      else                          panel.classList.toggle('panel--collapsed');
+      updateToggleVisibility();
+      savePanelState();
+    }
+
+    toggleLeft.addEventListener('click', () => togglePanel(panelLeft, panelLeft.classList.contains('panel--collapsed')));
+    toggleRight.addEventListener('click', () => togglePanel(panelRight, panelRight.classList.contains('panel--collapsed')));
+
+    // === Spacers ===
+    const controlsSpacer = document.getElementById('controls-spacer');
+    const infoSpacer = document.getElementById('info-spacer');
+    const hintsSection = document.querySelector('.info-section--hints');
+
+    function updateSpacers() {
+      const lastAcc = document.querySelector('.panel--left .accordion:last-of-type');
+      if (lastAcc && controlsSpacer) {
+        const pc = lastAcc.closest('.panel__content');
+        if (pc) controlsSpacer.style.height = `${Math.max(0, pc.clientHeight - lastAcc.offsetHeight - 60)}px`;
+      }
+      if (hintsSection && infoSpacer) {
+        const pc = hintsSection.closest('.panel__content');
+        if (pc) infoSpacer.style.height = `${Math.max(0, pc.clientHeight - hintsSection.offsetHeight - 60)}px`;
+      }
+    }
+    window.addEventListener('resize', updateSpacers);
+    setTimeout(updateSpacers, 100);
+
+    // === Accordion Toggle ===
+    document.querySelectorAll('.accordion__header').forEach(header => {
+      header.addEventListener('click', () => {
+        const acc = header.closest('.accordion');
+        const wasOpen = acc.classList.contains('accordion--open');
+        const panel = acc.closest('.panel__content');
+        if (panel) panel.querySelectorAll('.accordion--open').forEach(a => a.classList.remove('accordion--open'));
+        if (!wasOpen) acc.classList.add('accordion--open');
+        setTimeout(updateSpacers, 50);
+      });
+    });
+
+    // === Build genre→artist map ===
+    async function buildGenreArtistMap() {
+      try {
+        const result = await api.getArtists({ limit: 5000 });
+        genreArtistMap = {};
+        for (const artist of (result.artists || [])) {
+          for (const g of (artist.genres || [])) {
+            if (!genreArtistMap[g]) genreArtistMap[g] = [];
+            genreArtistMap[g].push(artist.id || artist.name);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not build genre→artist map:', e);
+      }
+    }
+
+    function getArtistIdsForGenres(genreIds) {
+      const s = new Set();
+      for (const g of genreIds) for (const a of (genreArtistMap[g] || [])) s.add(a);
+      return [...s];
+    }
+
+    // Sentinel for hidden parent genre nodes — used inside applyFilterKey
+    const HIDDEN_COMM = '__hidden_parent__';
+
+    // applyParentGenreFilter: re-applies current filter with updated showParentGenres state
+    function applyParentGenreFilter() {
+      if (!graphView || !adaptedData) return;
+      applyFilterKey(filterKey);
+    }
+
+    // === Data Loading ===
+    async function loadGraphData() {
+      canvasPlaceholder.style.display = 'flex';
+      canvasPlaceholder.textContent = 'Loading genre graph...';
+
+      try {
+        const [data] = await Promise.all([
+          api.getGenreGraph(),
+          buildGenreArtistMap(),
+        ]);
+        currentData = data;
+
+        // Build set of genre ids that are listed as parent_genres on other nodes (lowercase for comparison)
+        parentGenreIds.clear();
+        for (const n of (data.nodes || [])) {
+          for (const pg of (n.parent_genres || [])) parentGenreIds.add(pg.toLowerCase());
+        }
+
+        // GraphView expects nodes with 'name' field; colors.js reads parent_genre (singular)
+        const adaptedNodes = (data.nodes || []).map(n => ({
+          ...n,
+          name: n.label || n.id,
+          parent_genre: (n.parent_genres || [])[0] || null,
+          _isParent: parentGenreIds.has((n.id || '').toLowerCase()),
+        }));
+        adaptedData = {
+          nodes: adaptedNodes,
+          edges: data.edges || [],
+          communities: data.communities || {},
+          bridges: data.bridges || [],
+        };
+
+        if (!graphView) {
+          graphView = new GraphView(canvas, {
+            nodeSize: parseInt(sliders.nodeSize.input.value),
+            edgeOpacity: parseInt(sliders.edgeOpacity.input.value) / 100,
+            minTracks: parseInt(sliders.minTracks.input.value),
+            showLabels: showLabelsCheckbox.checked,
+            dampingFactor: 0.65,        // less damping for smaller genre graph (livelier physics)
+            parentSizeMultiplier: 2.5,  // parent genre nodes rendered larger
+            physicsAlphaDecay: 0.99,    // slower cooling — ~520 ticks vs 130 default
+            physicsAlphaMin: 0.002,     // run a bit longer at low energy
+          });
+          canvas.addEventListener('nodehover', (e) => {
+            const { node, screenX, screenY } = e.detail;
+            if (node) showTooltip(node, screenX, screenY);
+            else hideTooltip();
+          });
+        }
+
+        graphView.setData(adaptedData);
+        graphView.preloadPhysics(30);
+        graphView.fitToView();
+        graphView.render();
+        graphView.isActive = true;
+        canvasPlaceholder.style.display = 'none';
+        document.getElementById('loaded-indicator').textContent = 'Genre Graph';
+
+        // Reset to default filter (native genre community)
+        filterKey = 'genre_comm';
+        filterCommunitySelect.value = 'genre_comm';
+        for (const n of adaptedData.nodes) n._filter_val = n.community ?? null;
+        graphView.setVisibilityField('_filter_val');
+        clusterList.setData(adaptedData.nodes, '_filter_val');
+        updateStats(graphView.getStats());
+        // Apply initial color: matched community if Match Colors ON, else current pill
+        if (matchColorsCheckbox?.checked) {
+          const mode = filterKeyToColorMode(filterKey);
+          if (mode) applyColorMode(mode);
+          else updateColorLegend(currentColorMode);
+        } else {
+          updateColorLegend(currentColorMode);
+        }
+
+      } catch (error) {
+        console.error('Failed to load genre graph:', error);
+        canvasPlaceholder.textContent = error.status === 404
+          ? 'Genre graph not found — run pipeline first.'
+          : 'Failed to load genre graph. Check console.';
+      }
+    }
+
+    // === Tooltip ===
+    function showTooltip(item, x, y) {
+      tooltipTitle.textContent = item.name || item.id;
+      const parents = (item.parent_genres || []).slice(0, 3).join(', ');
+      const artists = (item.sample_artists || []).slice(0, 3).join(', ');
+      tooltipContent.innerHTML = `
+        <div class="tooltip__row"><span>Tracks:</span><span>${item.track_count || 0}</span></div>
+        <div class="tooltip__row"><span>Community:</span><span>${item.community ?? '--'}</span></div>
+        ${parents ? `<div class="tooltip__row"><span>Parent:</span><span>${parents}</span></div>` : ''}
+        ${artists ? `<div class="tooltip__row"><span>Artists:</span><span>${artists}</span></div>` : ''}
+        ${item.is_bridge ? `<div class="tooltip__row" style="color:var(--accent)"><span>Bridge genre</span></div>` : ''}
+      `;
+      const rect = canvasContainer.getBoundingClientRect();
+      let left = x + 15, top = y + 15;
+      if (left + 200 > rect.width) left = x - 215;
+      if (top + 130 > rect.height) top = y - 145;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+      tooltip.style.display = 'block';
+    }
+
+    function hideTooltip() { tooltip.style.display = 'none'; }
+
+    // === Stats ===
+    function updateStats(stats) {
+      if (!stats) return;
+      statGenres.textContent = stats.totalNodes ?? '--';
+      statEdges.textContent = stats.totalEdges ?? '--';
+      statCommunities.textContent = stats.communities ?? '--';
+      statVisible.textContent = stats.visibleNodes ?? '--';
+
+      const sizes = stats.communitySizes;
+      const chart = document.getElementById('community-sizes-chart');
+      const container = document.getElementById('community-sizes');
+      if (sizes && sizes.length > 0 && chart) {
+        const max = Math.max(...sizes);
+        chart.innerHTML = '';
+        sizes.forEach(s => {
+          const bar = document.createElement('div');
+          bar.className = 'community-size-bar';
+          bar.style.height = `${Math.max(2, (s / max) * 52)}px`;
+          bar.title = `${s} genres`;
+          chart.appendChild(bar);
+        });
+        if (container) container.style.display = '';
+      }
+    }
+
+    // === Artist Community cross-coloring (uses shared COMM_MAPS cache) ===
+    async function applyArtistCommToNodes() {
+      await fetchCommMap('artist_balanced'); // populates COMM_MAPS['__artist_balanced_raw__']
+      if (!adaptedData || !graphView) return;
+      const rawMap = COMM_MAPS['__artist_balanced_raw__'] || {};
+      // Patch genre nodes in-place using sample_artists for color rendering
+      for (const n of graphView.nodes) {
+        const comms = {};
+        for (const a of (n.sample_artists || [])) {
+          const c = rawMap[a];
+          if (c != null) comms[c] = (comms[c] || 0) + 1;
+        }
+        const top = Object.entries(comms).sort((a, b) => b[1] - a[1])[0];
+        n.artist_community = top ? Number(top[0]) : null;
+      }
+      graphView.render();
+      updateColorLegend(currentColorMode);
+    }
+
+    // === Color Legend ===
+    function buildGenreCommLegend(nodes) {
+      // For genre graph: label each community by its highest track-count genre
+      const commData = new Map();
+      nodes.forEach(n => {
+        const comm = n.community ?? 0;
+        if (!commData.has(comm)) commData.set(comm, { topLabel: null, topCount: 0, count: 0 });
+        const cd = commData.get(comm);
+        cd.count++;
+        if ((n.track_count || 0) > cd.topCount) {
+          cd.topCount = n.track_count || 0;
+          cd.topLabel = n.label || n.id;
+        }
+      });
+      return Array.from(commData.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([commId, cd]) => ({
+          label: `${cd.topLabel || `C${commId}`} (${cd.count})`,
+          color: getCategoryColor(commId),
+        }));
+    }
+
+    function buildArtistCommLegend(nodes) {
+      // Community = artist_community field
+      const seen = new Map();
+      nodes.forEach(n => {
+        const c = n.artist_community;
+        if (c != null && !seen.has(c)) seen.set(c, 0);
+        if (c != null) seen.set(c, seen.get(c) + 1);
+      });
+      return Array.from(seen.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([c, count]) => ({
+          label: `Artist C${c} (${count})`,
+          color: getCategoryColor(c),
+        }));
+    }
+
+    function updateColorLegend(colorMode) {
+      if (!adaptedData) { colorLegend.innerHTML = ''; return; }
+
+      let items;
+      if (colorMode === 'community') {
+        items = buildGenreCommLegend(adaptedData.nodes);
+      } else if (colorMode === 'artist_community') {
+        items = buildArtistCommLegend(adaptedData.nodes);
+        if (items.length === 0) {
+          colorLegend.innerHTML = '<div class="text-muted text-sm">Loading…</div>';
+          applyArtistCommToNodes();
+          return;
+        }
+      } else {
+        items = generateLegend(colorMode, adaptedData);
+      }
+
+      // Apply sort (only meaningful for categorical modes)
+      if (items.length > 1 && items[0]?.type !== 'gradient') {
+        const sort = document.querySelector('.sort-pill--active')?.dataset.sort || 'count';
+        if (sort === 'alpha') items = [...items].sort((a, b) => a.label.localeCompare(b.label));
+      }
+
+      if (items.length === 1 && items[0]?.type === 'gradient') {
+        const g = items[0];
+        colorLegend.innerHTML = `
+          <div class="gradient-bar" style="background:linear-gradient(to right,${g.colors.join(',')})"></div>
+          <div class="gradient-labels"><span>${g.range[0]}</span><span>${g.range[1]}</span></div>`;
+        return;
+      }
+
+      colorLegend.innerHTML = items.map(item => `
+        <div class="color-legend__item">
+          <div class="color-legend__swatch" style="background:${item.color}"></div>
+          <span>${item.label}</span>
+        </div>`).join('');
+    }
+
+    // === Selection ===
+    function updateSelectionBar() {
+      const count = currentSelection.size;
+      selectionBar.style.display = count > 0 ? 'flex' : 'none';
+      if (count > 0) selectionCount.textContent = count;
+    }
+
+    function updateSelectionSummary(nodes) {
+      const el = document.getElementById('selection-summary');
+      if (!nodes || nodes.length === 0) {
+        el.innerHTML = '<div class="text-muted text-sm">Nothing selected</div>';
+        return;
+      }
+      const totalTracks = nodes.reduce((s, n) => s + (n.track_count || 0), 0);
+      const artistCount = getArtistIdsForGenres(nodes.map(n => n.id)).length;
+      el.innerHTML = `
+        <div class="text-sm"><strong>${nodes.length}</strong> genres · <strong>${totalTracks}</strong> tracks · <strong>${artistCount}</strong> artists</div>
+        <div class="text-muted text-xs" style="margin-top:4px">${nodes.slice(0, 5).map(n => n.name || n.id).join(', ')}${nodes.length > 5 ? '…' : ''}</div>
+      `;
+    }
+
+    // GraphView fires selection through the view store, not canvas events
+    view.addEventListener('selection-change', (e) => {
+      const selectedIds = e.detail.selectedArtists; // these are genre node IDs for this page
+      currentSelection = new Set(selectedIds);
+      updateSelectionBar();
+      // Resolve node objects for summary
+      const selectedNodes = selectedIds.map(id => graphView?.nodes?.find(n => n.id === id)).filter(Boolean);
+      updateSelectionSummary(selectedNodes);
+      if (selectedIds.length > 0 && panelRight.classList.contains('panel--collapsed')) {
+        togglePanel(panelRight, true);
+      }
+      // Auto-highlight connections when exactly 1 node selected
+      if (graphView) {
+        if (selectedIds.length === 1) {
+          const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+          const neighbors = graphView.getNeighborsAtDepth(selectedIds, depth);
+          graphView.setFocusNodes(new Set(neighbors));
+        } else {
+          graphView.clearFocus();
+        }
+      }
+    });
+
+    document.getElementById('add-to-staging').addEventListener('click', () => {
+      if (currentSelection.size === 0) return;
+      const genres = [...currentSelection];
+      const label = genres.length === 1 ? genres[0] : `Genre Selection (${genres.length} genres)`;
+      const artistIds = getArtistIdsForGenres(genres);
+      if (artistIds.length === 0) return;
+      staging.add({
+        name: label,
+        artistIds,
+        type: 'genre',
+        source: { tab: 'genre_graph', element: 'genre_selection', type: 'genre' },
+        meta: { genres },
+      });
+      currentSelection.clear();
+      view.clearSelection();
+      updateSelectionBar();
+    });
+
+    document.getElementById('clear-selection').addEventListener('click', () => {
+      currentSelection.clear();
+      view.clearSelection();
+      updateSelectionBar();
+    });
+
+    document.getElementById('add-visible').addEventListener('click', () => {
+      if (!graphView) return;
+      const visibleIds = graphView.getVisibleNodeIds();
+      const artistIds = getArtistIdsForGenres(visibleIds);
+      if (artistIds.length === 0) return;
+      staging.add({
+        name: `Visible Genres (${visibleIds.length})`,
+        artistIds,
+        type: 'genre',
+        source: { tab: 'genre_graph', element: 'visible_genres', type: 'genre' },
+        meta: { genres: visibleIds },
+      });
+    });
+
+    document.getElementById('reset-view').addEventListener('click', () => {
+      if (graphView) { graphView.fitToView(); graphView.render(); }
+    });
+
+    // === Match Colors: when ON, canvas color tracks the current filter community ===
+    const matchColorsCheckbox = document.getElementById('match-colors');
+
+    function applyColorMode(mode) {
+      currentColorMode = mode;
+      if (graphView) {
+        graphView.setOption('colorMode', mode);  // also calls render()
+        if (mode === 'artist_community' && !COMM_MAPS['__artist_balanced_raw__']) {
+          applyArtistCommToNodes(); // async: will re-render + update legend after data loads
+          return;
+        }
+      }
+      if (adaptedData) updateColorLegend(mode);
+    }
+
+    function filterKeyToColorMode(key) {
+      if (key === 'parent_genre')         return 'parent_genre';
+      return 'filter_community'; // all community-type filters use _filter_val
+    }
+
+    // Match Colors toggle: ON → sync canvas to filter
+    matchColorsCheckbox.addEventListener('change', () => {
+      if (matchColorsCheckbox.checked) {
+        colorPills.forEach(p => p.classList.remove('color-pill--active'));
+        const mode = filterKeyToColorMode(filterKey);
+        if (mode) applyColorMode(mode);
+      }
+    });
+
+    // === Color Pills — manual click turns off Match Colors ===
+    colorPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        matchColorsCheckbox.checked = false;
+        colorPills.forEach(p => p.classList.remove('color-pill--active'));
+        pill.classList.add('color-pill--active');
+        applyColorMode(pill.dataset.color);
+      });
+    });
+
+    // === Filter Community Change ===
+    filterCommunitySelect.addEventListener('change', () => {
+      filterKey = filterCommunitySelect.value;
+      applyFilterKey(filterKey);
+      if (matchColorsCheckbox.checked) {
+        colorPills.forEach(p => p.classList.remove('color-pill--active'));
+        const mode = filterKeyToColorMode(filterKey);
+        if (mode) applyColorMode(mode);
+      }
+    });
+
+    // === Search ===
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      if (graphView) { graphView.filterBySearch(q); updateStats(graphView.getStats()); }
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); }
+    });
+
+    // === Slider Wiring ===
+    sliders.nodeSize.input.addEventListener('input', () => {
+      sliders.nodeSize.value.textContent = sliders.nodeSize.input.value;
+      if (graphView) graphView.setOption('nodeSize', parseInt(sliders.nodeSize.input.value));
+    });
+    sliders.labelThreshold.input.addEventListener('input', () => {
+      sliders.labelThreshold.value.textContent = sliders.labelThreshold.input.value;
+      if (graphView) graphView.setOption('labelThreshold', parseInt(sliders.labelThreshold.input.value));
+    });
+    sliders.edgeOpacity.input.addEventListener('input', () => {
+      sliders.edgeOpacity.value.textContent = sliders.edgeOpacity.input.value + '%';
+      if (graphView) graphView.setOption('edgeOpacity', parseInt(sliders.edgeOpacity.input.value) / 100);
+    });
+    sliders.minTracks.input.addEventListener('input', () => {
+      sliders.minTracks.value.textContent = sliders.minTracks.input.value;
+      if (graphView) { graphView.setOption('minTracks', parseInt(sliders.minTracks.input.value)); updateStats(graphView.getStats()); }
+    });
+    // linkStrength slider: 0–100 → 0–0.16 (default 50 → 0.08)
+    sliders.linkStrength.input.addEventListener('input', () => {
+      sliders.linkStrength.value.textContent = sliders.linkStrength.input.value;
+      if (graphView) graphView.setOption('linkStrength', parseInt(sliders.linkStrength.input.value) * 0.0016);
+    });
+    // repulsion slider: 0–100 → 0–700 (default 50 → 350)
+    sliders.repulsion.input.addEventListener('input', () => {
+      sliders.repulsion.value.textContent = sliders.repulsion.input.value;
+      if (graphView) graphView.setOption('repulsion', parseInt(sliders.repulsion.input.value) * 7);
+    });
+    showLabelsCheckbox.addEventListener('change', () => {
+      if (graphView) graphView.setOption('showLabels', showLabelsCheckbox.checked);
+    });
+    showEdgesCheckbox.addEventListener('change', () => {
+      if (graphView) graphView.setOption('showEdges', showEdgesCheckbox.checked);
+    });
+    document.getElementById('show-parent-genres').addEventListener('change', (e) => {
+      showParentGenres = e.target.checked;
+      applyParentGenreFilter();
+    });
+    document.getElementById('physics-enabled').addEventListener('change', (e) => {
+      if (!graphView) return;
+      if (e.target.checked) graphView.startPhysics();
+      else graphView.stopPhysics();
+    });
+    document.getElementById('reheat-physics').addEventListener('click', () => {
+      if (!graphView) return;
+      graphView.stopPhysics();
+      graphView.physicsAlpha = 1.0;
+      graphView.startPhysics();
+    });
+
+    // (All/None handled by ClusterList's own built-in buttons)
+
+    // === Focus / Connection Actions ===
+    let viewConnectedActive = false; // track if view-connected mode is on
+
+    function applyViewConnected() {
+      if (!graphView || currentSelection.size === 0) return;
+      const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+      const connected = graphView.getNeighborsAtDepth([...currentSelection], depth);
+      graphView.clearFocus();          // remove dim — all visible nodes are relevant
+      graphView.visibleNodes = new Set(connected);
+      graphView.render();
+      updateStats(graphView.getStats());
+      viewConnectedActive = true;
+    }
+
+    document.getElementById('focus-depth').addEventListener('input', () => {
+      document.getElementById('focus-depth-value').textContent = document.getElementById('focus-depth').value;
+      const selectedIds = [...currentSelection];
+      if (graphView) {
+        if (viewConnectedActive && selectedIds.length > 0) {
+          applyViewConnected(); // re-run view-connected with new depth
+        } else if (selectedIds.length === 1) {
+          const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+          graphView.setFocusNodes(new Set(graphView.getNeighborsAtDepth(selectedIds, depth)));
+        }
+      }
+    });
+
+    document.getElementById('view-connected').addEventListener('click', applyViewConnected);
+
+    document.getElementById('select-connected').addEventListener('click', () => {
+      if (!graphView || currentSelection.size === 0) return;
+      const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+      const connected = graphView.getNeighborsAtDepth([...currentSelection], depth);
+      view.setSelection(connected);
+    });
+
+    document.getElementById('clear-focus').addEventListener('click', () => {
+      if (!graphView) return;
+      viewConnectedActive = false;
+      graphView.clearFocus();
+      graphView.updateVisibleNodes();
+      graphView.render();
+      updateStats(graphView.getStats());
+      view.clearSelection();
+    });
+
+    // === Legend Sort ===
+    document.getElementById('legend-sort').addEventListener('click', (e) => {
+      const pill = e.target.closest('.sort-pill');
+      if (!pill) return;
+      document.querySelectorAll('.sort-pill').forEach(p => p.classList.remove('sort-pill--active'));
+      pill.classList.add('sort-pill--active');
+      if (adaptedData) updateColorLegend(currentColorMode);
+    });
+
+    // === Keyboard Shortcuts ===
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 's' || e.key === 'S') { searchInput.focus(); e.preventDefault(); }
+      if (e.key === 'f' || e.key === 'F') togglePanel(panelLeft);
+      if (e.key === 'e' || e.key === 'E') window.location.href = 'selected.html';
+      if (e.key === 'Escape') {
+        view.clearSelection(); // triggers selection-change listener
+      }
+    });
+
+    // === Staging Stats ===
+    function updateStagingStats() {
+      const stats = staging.getStats();
+      stagingSelections.textContent = stats.selectionCount;
+      stagingArtists.textContent = stats.artistCount;
+      stagingTracks.textContent = stats.trackCount;
+    }
+    staging.addEventListener('change', updateStagingStats);
+    updateStagingStats();
+
+    // === Init ===
+    loadPanelState();
+    loadGraphData();
+  </script>
+</body>
+</html>

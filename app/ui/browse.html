@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <title>Browse - LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/stats.css">
+</head>
+<body>
+  <nav class="nav">
+    <a href="index.html" class="nav__brand">LibraryExplorer</a>
+    <div class="nav__tabs">
+      <a href="wiki.html" class="nav__tab">Wiki</a>
+      <a href="explore-graph-artist.html" class="nav__tab">Explore</a>
+      <a href="browse.html" class="nav__tab nav__tab--active">Browse</a>
+      <a href="selected.html" class="nav__tab">Selected</a>
+      <a href="settings.html" class="nav__tab">Settings</a>
+    </div>
+  </nav>
+
+  <div class="stats-layout">
+    <div class="stats-header">
+      <div class="stats-header__left">
+        <div class="view-toggle">
+          <button class="view-btn view-btn--active" data-view="library">Library</button>
+          <button class="view-btn" data-view="communities">Communities</button>
+        </div>
+      </div>
+      <div class="stats-header__right">
+        <span class="stats-header__info" id="header-info"></span>
+      </div>
+    </div>
+
+    <div class="stats-main">
+      <div class="stats-content" id="stats-content">
+        <div class="stats-loading" id="stats-loading">
+          <div class="stats-loading__spinner"></div>
+          <span>Loading...</span>
+        </div>
+      </div>
+      <aside class="stats-sidebar" id="stats-sidebar">
+        <div id="sb-selection-section"></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+          <div class="sidebar-title">Staging</div>
+          <div class="sidebar-metrics" id="sb-metrics">
+            <div class="sidebar-metric"><span class="sidebar-metric__label">Sets</span><strong id="sb-sets">0</strong></div>
+            <div class="sidebar-metric"><span class="sidebar-metric__label">Artists</span><strong id="sb-artists">0</strong></div>
+            <div class="sidebar-metric"><span class="sidebar-metric__label">Est. Tracks</span><strong id="sb-tracks">0</strong></div>
+          </div>
+          <a href="selected.html" class="btn btn--sm btn--primary" style="width:100%;justify-content:center;margin-top:10px">View Selected &#8594;</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module">
+    import { staging } from './js/stores/staging.js';
+    import * as api from './js/lib/api.js';
+
+    // ─── State ───────────────────────────────────────────────────────────────
+    let currentView = 'library';
+    let graphPreset = 'balanced';
+    let embeddingPreset = 'combined_balanced';
+    let artistsData = [];
+    let graphData = null;
+    let embeddingData = null;
+    let genreGraphData = null;
+    let parentGenreTree = {};
+    let decadeTree = [];
+    let audioFilters = { energy:[0,1], danceability:[0,1], valence:[0,1], acousticness:[0,1], instrumentalness:[0,1], tempo:[60,220] };
+    let audioFilterEnabled = false;
+    let currentSelection = null; // { type, name, artists: [] }
+    let invertedEmbClusters = {}; // {cluster_id: [artist_ids]} — built from API's {artist: cluster_id}
+
+    const content = document.getElementById('stats-content');
+    const loading = document.getElementById('stats-loading');
+
+    function setSelection(type, name, artists) {
+      currentSelection = { type, name, artists };
+      renderSidebar();
+    }
+    function clearSelection() {
+      currentSelection = null;
+      renderSidebar();
+    }
+
+    // ─── Staging sidebar ─────────────────────────────────────────────────────
+    function updateSidebar() {
+      const sets = staging.getAll();
+      const uniqueArtists = new Set(sets.flatMap(s => s.artistIds || [])).size;
+      const totalTracks = sets.reduce((sum, s) => sum + (s.current_count?.tracks || s.original_count?.tracks || 0), 0);
+      const sb = document.getElementById('sb-sets');
+      const sa = document.getElementById('sb-artists');
+      const st = document.getElementById('sb-tracks');
+      if (sb) sb.textContent = sets.length;
+      if (sa) sa.textContent = uniqueArtists;
+      if (st) st.textContent = totalTracks.toLocaleString();
+    }
+    staging.addEventListener('change', updateSidebar);
+    updateSidebar();
+
+    function renderSidebar() {
+      const el = document.getElementById('sb-selection-section');
+      if (!el) return;
+
+      if (!currentSelection || !currentSelection.artists.length) {
+        // General stats
+        const totalTracks = artistsData.reduce((s,a)=>s+(a.track_count||0),0);
+        const pgCounts = {};
+        artistsData.forEach(a => { const p=a.parent_genre||'other'; pgCounts[p]=(pgCounts[p]||0)+1; });
+        const topPG = Object.entries(pgCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        const maxPG = topPG[0]?.[1]||1;
+        el.innerHTML = `
+          <div class="sidebar-section">
+            <div class="sidebar-title">Library</div>
+            <div class="sb-stat-row"><span>${artistsData.length.toLocaleString()}</span><span class="sidebar-metric__label">artists</span></div>
+            <div class="sb-stat-row"><span>${totalTracks.toLocaleString()}</span><span class="sidebar-metric__label">tracks</span></div>
+            <div class="sidebar-divider" style="margin:var(--space-3) 0"></div>
+            <div class="sidebar-label-sm">Top Genres</div>
+            ${topPG.map(([pg,n])=>`
+              <div class="sb-bar-row">
+                <span class="sb-bar-label">${pg}</span>
+                <div class="sb-bar-track"><div class="sb-bar-fill" style="width:${(n/maxPG*100).toFixed(0)}%"></div></div>
+                <span class="sb-bar-count">${n}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      const { type, name, artists } = currentSelection;
+      const totalTracks = artists.reduce((s,a)=>s+(a.track_count||0),0);
+      const avg = computeAudioAverages(artists);
+      const audioFeats = ['energy','danceability','valence'];
+      const audioLabels = { energy:'Energy', danceability:'Dance', valence:'Valence' };
+
+      // Top genres
+      const genreCounts = {};
+      artists.forEach(a => (a.genres||[]).slice(0,3).forEach(g => { genreCounts[g]=(genreCounts[g]||0)+1; }));
+      const topGenres = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]).slice(0,4);
+      const maxG = topGenres[0]?.[1]||1;
+
+      // Era spread
+      const decadeCounts = {};
+      artists.forEach(a => { const d=getDecade(a.avg_year); if(d!=='Unknown') decadeCounts[d]=(decadeCounts[d]||0)+1; });
+      const decades = Object.entries(decadeCounts).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
+      const maxD = Math.max(...decades.map(d=>d[1]),1);
+
+      el.innerHTML = `
+        <div class="sidebar-section">
+          <div class="sidebar-label-xs">${type.replace('-',' ').replace(/^\w/,c=>c.toUpperCase())}</div>
+          <div class="sidebar-title">${name}</div>
+          <div class="sb-stat-row"><span>${artists.length}</span><span class="sidebar-metric__label">artists</span></div>
+          <div class="sb-stat-row"><span>${totalTracks.toLocaleString()}</span><span class="sidebar-metric__label">tracks</span></div>
+          ${topGenres.length ? `
+            <div class="sidebar-divider" style="margin:var(--space-3) 0"></div>
+            <div class="sidebar-label-sm">Genres</div>
+            ${topGenres.map(([g,n])=>`
+              <div class="sb-bar-row">
+                <span class="sb-bar-label">${g}</span>
+                <div class="sb-bar-track"><div class="sb-bar-fill" style="width:${(n/maxG*100).toFixed(0)}%"></div></div>
+                <span class="sb-bar-count">${n}</span>
+              </div>
+            `).join('')}
+          ` : ''}
+          ${decades.length ? `
+            <div class="sidebar-divider" style="margin:var(--space-3) 0"></div>
+            <div class="sidebar-label-sm">Era</div>
+            <div class="sb-decades">
+              ${decades.map(([d,n])=>`
+                <div class="sb-decade-bar" title="${d}: ${n}">
+                  <div class="sb-decade-fill" style="height:${(n/maxD*100).toFixed(0)}%"></div>
+                  <span class="sb-decade-lbl">${d.replace('s','')}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          ${Object.keys(avg).length ? `
+            <div class="sidebar-divider" style="margin:var(--space-3) 0"></div>
+            <div class="sidebar-label-sm">Avg Sound</div>
+            ${audioFeats.map(f=>avg[f]!=null?`
+              <div class="sb-bar-row">
+                <span class="sb-bar-label">${audioLabels[f]}</span>
+                <div class="sb-bar-track"><div class="sb-bar-fill sb-bar-fill--audio" style="width:${((avg[f]||0)*100).toFixed(0)}%"></div></div>
+                <span class="sb-bar-count">${(avg[f]||0).toFixed(2)}</span>
+              </div>
+            `:'').join('')}
+          ` : ''}
+          <div class="sidebar-divider" style="margin:var(--space-3) 0"></div>
+          <div class="sidebar-label-sm">Artists (${artists.length})</div>
+          ${artists.slice(0, 12).map(a => `
+            <div class="sb-artist-row">
+              <span class="sb-artist-name">${a.name}</span>
+              <span class="sidebar-metric__label">${a.track_count || 0}t</span>
+            </div>
+          `).join('')}
+          ${artists.length > 12 ? `<div class="sidebar-metric__label" style="margin-top:2px;font-style:italic">+${artists.length - 12} more</div>` : ''}
+        </div>
+      `;
+    }
+
+    // ─── Data loading ─────────────────────────────────────────────────────────
+    async function loadData() {
+      try {
+        loading.style.display = 'flex';
+        const [artistsRes, graphRes, embRes, genreRes] = await Promise.all([
+          api.getArtists({ limit: 5000 }),
+          api.getGraph(graphPreset),
+          api.getEmbedding(embeddingPreset).catch(() => null),
+          api.getGenreGraph().catch(() => null),
+        ]);
+        artistsData = artistsRes.artists;
+        graphData = graphRes;
+        embeddingData = embRes;
+        genreGraphData = genreRes;
+        parentGenreTree = buildParentGenreTree(artistsData);
+        decadeTree = buildDecadeTree(artistsData);
+        loading.style.display = 'none';
+        document.getElementById('header-info').textContent =
+          `${artistsData.length.toLocaleString()} artists · ${artistsData.reduce((s,a)=>s+(a.track_count||0),0).toLocaleString()} tracks`;
+        renderView();
+        renderSidebar();
+      } catch (err) {
+        loading.innerHTML = `<div class="text-error">Failed to load: ${err.message}</div>`;
+      }
+    }
+
+    // ─── View switching ───────────────────────────────────────────────────────
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentView = btn.dataset.view;
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('view-btn--active', b === btn));
+        renderView();
+      });
+    });
+
+    function renderView() {
+      if (!artistsData.length) return;
+      if (currentView === 'library') renderLibraryView();
+      else renderCommunitiesView();
+    }
+
+    // ─── Overview body ────────────────────────────────────────────────────────
+    function renderOverviewBody() {
+      const totalArtists = artistsData.length;
+      const totalTracks = artistsData.reduce((s, a) => s + (a.track_count || 0), 0);
+      const totalGenres = new Set(artistsData.flatMap(a => a.genres || [])).size;
+
+      // Top parent genres
+      const pgCounts = {};
+      artistsData.forEach(a => { const p = a.parent_genre || 'other'; pgCounts[p] = (pgCounts[p]||0)+1; });
+      const topPG = Object.entries(pgCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      const maxPG = topPG[0]?.[1] || 1;
+
+      // Average audio
+      const avg = computeAudioAverages(artistsData);
+      const audioFeatures = ['energy','danceability','valence','acousticness','instrumentalness'];
+      const audioLabels  = { energy:'Energy', danceability:'Dance', valence:'Valence', acousticness:'Acoustic', instrumentalness:'Instr.' };
+
+      return `
+        <div class="overview-body">
+          <div class="overview-stats-row">
+            <div class="overview-stat"><span class="overview-stat__val">${totalArtists.toLocaleString()}</span><span class="overview-stat__lbl">Artists</span></div>
+            <div class="overview-stat"><span class="overview-stat__val">${totalTracks.toLocaleString()}</span><span class="overview-stat__lbl">Tracks</span></div>
+            <div class="overview-stat"><span class="overview-stat__val">${totalGenres.toLocaleString()}</span><span class="overview-stat__lbl">Genres</span></div>
+          </div>
+          <div class="overview-section-label">Top Genres</div>
+          <div class="overview-bars">
+            ${topPG.map(([pg, n]) => `
+              <div class="overview-bar-row">
+                <span class="overview-bar-label">${pg}</span>
+                <div class="overview-bar-track">
+                  <div class="overview-bar-fill" style="width:${(n/maxPG*100).toFixed(1)}%"></div>
+                </div>
+                <span class="overview-bar-val">${n}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="overview-section-label" style="margin-top:var(--space-4)">Avg Audio Profile</div>
+          <div class="overview-bars">
+            ${audioFeatures.map(f => `
+              <div class="overview-bar-row">
+                <span class="overview-bar-label">${audioLabels[f]}</span>
+                <div class="overview-bar-track">
+                  <div class="overview-bar-fill overview-bar-fill--audio" style="width:${((avg[f]||0)*100).toFixed(1)}%"></div>
+                </div>
+                <span class="overview-bar-val">${(avg[f]||0).toFixed(2)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // ─── Library view ─────────────────────────────────────────────────────────
+    function renderLibraryView() {
+      content.innerHTML = `
+        <div class="drill-section drill-section--open" id="sec-overview">
+          <div class="drill-header" data-sec="overview">
+            <span class="drill-chevron" style="transform:rotate(90deg)">&#9654;</span>
+            <span class="drill-title">Overview</span>
+            <span class="drill-meta" id="overview-meta"></span>
+          </div>
+          <div class="drill-body" id="body-overview">
+            ${renderOverviewBody()}
+          </div>
+        </div>
+        <div class="drill-section" id="sec-genre">
+          <div class="drill-header" data-sec="genre">
+            <span class="drill-chevron">&#9654;</span>
+            <span class="drill-title">By Genre</span>
+            <span class="drill-meta">${Object.keys(parentGenreTree).length} parent genres</span>
+          </div>
+          <div class="drill-body" id="body-genre">
+            ${renderParentGenreList(parentGenreTree, artistsData)}
+          </div>
+        </div>
+        <div class="drill-section" id="sec-decade">
+          <div class="drill-header" data-sec="decade">
+            <span class="drill-chevron">&#9654;</span>
+            <span class="drill-title">By Decade</span>
+            <span class="drill-meta">${decadeTree.filter(d=>d.decade!=='Unknown').length} decades</span>
+          </div>
+          <div class="drill-body" id="body-decade">
+            ${renderDecadeBody(decadeTree, artistsData)}
+          </div>
+        </div>
+        <div class="drill-section" id="sec-audio">
+          <div class="drill-header" data-sec="audio">
+            <span class="drill-chevron">&#9654;</span>
+            <span class="drill-title">By Audio Features</span>
+            <span class="drill-meta">Filter by sound profile</span>
+          </div>
+          <div class="drill-body" id="body-audio">
+            ${renderAudioBody()}
+          </div>
+        </div>
+      `;
+      const overviewMeta = document.getElementById('overview-meta');
+      if (overviewMeta) overviewMeta.textContent = `${artistsData.length} artists · ${artistsData.reduce((s,a)=>s+(a.track_count||0),0).toLocaleString()} tracks`;
+      attachDrillHandlers();
+      attachGenreHandlers();
+      attachDecadeHandlers();
+      attachAudioHandlers();
+      // Attach add-button handlers for all initially-visible add buttons
+      content.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+    }
+
+    // ─── Genre section ────────────────────────────────────────────────────────
+    function renderParentGenreList(tree, allArtists) {
+      return Object.entries(tree)
+        .sort((a,b) => b[1].totalCount - a[1].totalCount)
+        .map(([parent, data]) => `
+          <div class="tree-node" data-type="pg" data-id="${esc(parent)}">
+            <div class="tree-row">
+              <span class="tree-chevron">&#9654;</span>
+              <span class="tree-label">${parent}</span>
+              <span class="tree-meta">${data.totalCount} artists · ${data.subgenres.length} subgenres</span>
+              <div class="tree-actions">
+                <button class="add-btn" data-action="add-parent-genre" data-genre="${esc(parent)}">+ Add all</button>
+              </div>
+            </div>
+            <div class="tree-children">
+              ${renderSubgenreList(data.subgenres, parent)}
+            </div>
+          </div>
+        `).join('');
+    }
+
+    function renderSubgenreList(subgenres, parentGenre) {
+      return subgenres.map((sub, i) => `
+        <div class="tree-node tree-node--l2 ${i >= 15 ? 'tree-node--hidden' : ''}" data-type="sg" data-id="${esc(sub.name)}">
+          <div class="tree-row">
+            <span class="tree-chevron">&#9654;</span>
+            <span class="tree-label">${sub.name}</span>
+            <span class="tree-meta">${sub.count} artists</span>
+            <div class="tree-actions">
+              <button class="add-btn add-btn--ghost" data-action="add-genre" data-genre="${esc(sub.name)}">+ Add</button>
+            </div>
+          </div>
+          <div class="tree-children">
+            <!-- Artists loaded on expand -->
+          </div>
+        </div>
+        ${i === 14 && subgenres.length > 15 ? `<button class="show-more-btn" data-parent="${esc(parentGenre)}" data-total="${subgenres.length}">Show all ${subgenres.length} &#9660;</button>` : ''}
+      `).join('');
+    }
+
+    function attachGenreHandlers() {
+      // Parent genre toggle
+      document.querySelectorAll('[data-type="pg"] > .tree-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          toggleNode(node, '.tree-node[data-type="pg"]');
+        });
+      });
+
+      // Subgenre toggle → load artists
+      document.querySelectorAll('[data-type="sg"] > .tree-row').forEach(row => {
+        row.addEventListener('click', async (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const genreName = node.dataset.id;
+          const children = node.querySelector('.tree-children');
+
+          // Close siblings
+          closeSiblings(node, '[data-type="sg"]');
+
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+
+          if (isOpen && !children.innerHTML.trim()) {
+            const artists = artistsData.filter(a => (a.genres||[]).includes(genreName))
+              .sort((a,b) => (b.track_count||0) - (a.track_count||0));
+            children.innerHTML = artists.length
+              ? artists.map(a => renderArtistRow(a)).join('')
+              : '<div class="tree-empty">No artists</div>';
+            attachArtistHandlers(children);
+          }
+
+          if (isOpen) {
+            const artists = artistsData.filter(a => (a.genres||[]).includes(genreName));
+            setSelection('genre', genreName, artists);
+          } else clearSelection();
+        });
+      });
+
+      // Show more subgenres
+      document.querySelectorAll('.show-more-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const parent = btn.dataset.parent;
+          const parentNode = document.querySelector(`[data-type="pg"][data-id="${CSS.escape(parent)}"]`);
+          if (!parentNode) return;
+          const hidden = parentNode.querySelectorAll('.tree-node--hidden');
+          if (hidden.length) {
+            hidden.forEach(n => n.classList.remove('tree-node--hidden'));
+            btn.innerHTML = 'Show less &#9650;';
+          } else {
+            const all = parentNode.querySelectorAll('.tree-node--l2');
+            all.forEach((n,i) => { if(i>=15) n.classList.add('tree-node--hidden'); });
+            btn.innerHTML = `Show all ${btn.dataset.total} &#9660;`;
+          }
+        });
+      });
+    }
+
+    // ─── Decade section ───────────────────────────────────────────────────────
+    function renderDecadeBody(decades, allArtists) {
+      const maxCount = Math.max(...decades.map(d=>d.count), 1);
+      const realDecades = decades.filter(d => d.decade !== 'Unknown');
+      return `
+        <div class="decade-hist">
+          ${realDecades.map(d => `
+            <div class="decade-bar" data-decade="${esc(d.decade)}" title="${d.decade}: ${d.count}">
+              <div class="decade-bar__fill" style="height:${(d.count/maxCount)*100}%"></div>
+              <span class="decade-bar__label">${d.decade.replace('s','')}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="decade-list" id="decade-list">
+          ${realDecades.map(d => `
+            <div class="tree-node" data-type="decade" data-id="${esc(d.decade)}">
+              <div class="tree-row">
+                <span class="tree-chevron">&#9654;</span>
+                <span class="tree-label">${d.decade}</span>
+                <span class="tree-meta">${d.count} artists</span>
+                <div class="tree-actions">
+                  <button class="add-btn add-btn--ghost" data-action="add-decade" data-decade="${esc(d.decade)}">+ Add</button>
+                </div>
+              </div>
+              <div class="tree-children"></div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function attachDecadeHandlers() {
+      document.querySelectorAll('.decade-bar').forEach(bar => {
+        bar.addEventListener('click', () => {
+          const decade = bar.dataset.decade;
+          const node = document.querySelector(`[data-type="decade"][data-id="${CSS.escape(decade)}"]`);
+          if (node) {
+            if (!node.closest('.drill-section').classList.contains('drill-section--open')) {
+              node.closest('.drill-section').querySelector('.drill-header').click();
+            }
+            node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setTimeout(() => node.querySelector('.tree-row').click(), 300);
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-type="decade"] > .tree-row').forEach(row => {
+        row.addEventListener('click', async (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const decade = node.dataset.id;
+          const children = node.querySelector('.tree-children');
+
+          closeSiblings(node, '[data-type="decade"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+
+          if (isOpen) {
+            const decadeArtists = artistsData.filter(a => getDecade(a.avg_year) === decade);
+            setSelection('decade', decade, decadeArtists);
+          } else clearSelection();
+
+          if (isOpen && !children.innerHTML.trim()) {
+            // Genre × Decade breakdown
+            const decadeArtists = artistsData.filter(a => getDecade(a.avg_year) === decade);
+            const byGenre = {};
+            decadeArtists.forEach(a => {
+              const pg = a.parent_genre || 'other';
+              if (!byGenre[pg]) byGenre[pg] = [];
+              byGenre[pg].push(a);
+            });
+
+            children.innerHTML = Object.entries(byGenre)
+              .sort((a,b) => b[1].length - a[1].length)
+              .map(([genre, artists]) => `
+                <div class="tree-node tree-node--l2" data-type="dg" data-id="${esc(genre)}">
+                  <div class="tree-row">
+                    <span class="tree-chevron">&#9654;</span>
+                    <span class="tree-label">${genre}</span>
+                    <span class="tree-meta">${artists.length} artists</span>
+                    <div class="tree-actions">
+                      <button class="add-btn add-btn--ghost" data-action="add-decade-genre" data-decade="${esc(decade)}" data-genre="${esc(genre)}">+ Add</button>
+                    </div>
+                  </div>
+                  <div class="tree-children"></div>
+                </div>
+              `).join('');
+
+            // Decade-genre toggle → show artists
+            children.querySelectorAll('[data-type="dg"] > .tree-row').forEach(dgRow => {
+              dgRow.addEventListener('click', (e) => {
+                if (e.target.closest('.add-btn')) return;
+                const dgNode = dgRow.parentElement;
+                const genre = dgNode.dataset.id;
+                const dgChildren = dgNode.querySelector('.tree-children');
+
+                closeSiblings(dgNode, '[data-type="dg"]');
+                const dgOpen = dgNode.classList.toggle('tree-node--open');
+                dgRow.querySelector('.tree-chevron').style.transform = dgOpen ? 'rotate(90deg)' : '';
+
+                if (dgOpen && !dgChildren.innerHTML.trim()) {
+                  const artists = artistsData
+                    .filter(a => getDecade(a.avg_year) === decade && a.parent_genre === genre)
+                    .sort((a,b) => (b.track_count||0) - (a.track_count||0));
+                  dgChildren.innerHTML = artists.map(a => renderArtistRow(a)).join('');
+                  attachArtistHandlers(dgChildren);
+                }
+              });
+            });
+
+            children.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+          }
+        });
+      });
+    }
+
+    // ─── Audio section ────────────────────────────────────────────────────────
+    const AUDIO_FEATURES = [
+      { key: 'energy',           label: 'Energy',       min: 0, max: 1,   step: 0.01 },
+      { key: 'danceability',     label: 'Dance',        min: 0, max: 1,   step: 0.01 },
+      { key: 'valence',          label: 'Valence',      min: 0, max: 1,   step: 0.01 },
+      { key: 'acousticness',     label: 'Acoustic',     min: 0, max: 1,   step: 0.01 },
+      { key: 'instrumentalness', label: 'Instr.',       min: 0, max: 1,   step: 0.01 },
+      { key: 'tempo',            label: 'Tempo (BPM)',  min: 60, max: 220, step: 1   },
+    ];
+
+    function renderAudioBody() {
+      const avg = computeAudioAverages(artistsData);
+      return `
+        <div class="audio-panel">
+          <div class="audio-top">
+            <canvas id="radar-canvas" width="240" height="240"></canvas>
+            <div class="audio-sliders">
+              ${AUDIO_FEATURES.map(f => `
+                <div class="slider-row" data-feature="${f.key}">
+                  <span class="slider-label">${f.label}</span>
+                  <div class="range-slider" data-feature="${f.key}">
+                    <div class="range-track"></div>
+                    <div class="range-fill"></div>
+                    <input type="range" class="range-thumb range-min" min="${f.key==='tempo'?f.min:f.min*100}" max="${f.key==='tempo'?f.max:f.max*100}" value="${f.key==='tempo'?f.min:f.min*100}" step="${f.key==='tempo'?f.step:f.step*100}">
+                    <input type="range" class="range-thumb range-max" min="${f.key==='tempo'?f.min:f.min*100}" max="${f.key==='tempo'?f.max:f.max*100}" value="${f.key==='tempo'?f.max:f.max*100}" step="${f.key==='tempo'?f.step:f.step*100}">
+                  </div>
+                  <span class="slider-vals"></span>
+                </div>
+              `).join('')}
+              <div class="audio-btns">
+                <button class="add-btn" id="reset-audio">Reset</button>
+                <button class="add-btn" id="add-audio-filter">+ Add Filtered</button>
+              </div>
+            </div>
+          </div>
+          <div class="audio-results" id="audio-results">
+            <div class="audio-results__header">
+              <span id="audio-match-count">${artistsData.length} artists match</span>
+            </div>
+            <div class="audio-results__list" id="audio-match-list"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function attachAudioHandlers() {
+      // Draw initial radar
+      drawRadar();
+
+      // Setup dual-range sliders
+      AUDIO_FEATURES.forEach(f => {
+        const sliderDiv = document.querySelector(`.range-slider[data-feature="${f.key}"]`);
+        if (!sliderDiv) return;
+        const minInput = sliderDiv.querySelector('.range-min');
+        const maxInput = sliderDiv.querySelector('.range-max');
+        const fillDiv = sliderDiv.querySelector('.range-fill');
+        const valsEl = sliderDiv.closest('.slider-row').querySelector('.slider-vals');
+
+        const scale = f.key === 'tempo' ? 1 : 100; // tempo uses raw BPM / 100 stored
+
+        function updateSlider(evt) {
+          let minV = parseFloat(minInput.value) / 100;
+          let maxV = parseFloat(maxInput.value) / 100;
+          if (f.key === 'tempo') { minV = parseFloat(minInput.value); maxV = parseFloat(maxInput.value); }
+
+          // Prevent crossing
+          if (f.key === 'tempo') {
+            if (parseFloat(minInput.value) > parseFloat(maxInput.value)) {
+              if (evt && evt.target === minInput) minInput.value = maxInput.value;
+              else maxInput.value = minInput.value;
+              minV = parseFloat(minInput.value);
+              maxV = parseFloat(maxInput.value);
+            }
+          } else {
+            if (parseFloat(minInput.value) > parseFloat(maxInput.value)) {
+              if (evt && evt.target === minInput) { minInput.value = maxInput.value; minV = maxV; }
+              else { maxInput.value = minInput.value; maxV = minV; }
+            }
+          }
+
+          const range = f.key === 'tempo' ? (220 - 60) : 100;
+          const baseMin = f.key === 'tempo' ? 60 : 0;
+          const pct1 = ((parseFloat(minInput.value) - baseMin) / range) * 100;
+          const pct2 = ((parseFloat(maxInput.value) - baseMin) / range) * 100;
+          fillDiv.style.left = pct1 + '%';
+          fillDiv.style.width = (pct2 - pct1) + '%';
+
+          if (f.key === 'tempo') {
+            valsEl.textContent = `${Math.round(minV)}–${Math.round(maxV)}`;
+            audioFilters.tempo = [minV, maxV];
+          } else {
+            valsEl.textContent = `${minV.toFixed(1)}–${maxV.toFixed(1)}`;
+            audioFilters[f.key] = [minV, maxV];
+          }
+
+          audioFilterEnabled = true;
+          updateAudioResults();
+          drawRadar();
+        }
+
+        minInput.addEventListener('input', updateSlider);
+        maxInput.addEventListener('input', updateSlider);
+        updateSlider(null); // initial render
+      });
+
+      // Reset
+      document.getElementById('reset-audio')?.addEventListener('click', () => {
+        audioFilters = { energy:[0,1], danceability:[0,1], valence:[0,1], acousticness:[0,1], instrumentalness:[0,1], tempo:[60,220] };
+        audioFilterEnabled = false;
+        AUDIO_FEATURES.forEach(f => {
+          const sliderDiv = document.querySelector(`.range-slider[data-feature="${f.key}"]`);
+          if (!sliderDiv) return;
+          const minInput = sliderDiv.querySelector('.range-min');
+          const maxInput = sliderDiv.querySelector('.range-max');
+          minInput.value = f.key === 'tempo' ? 60 : 0;
+          maxInput.value = f.key === 'tempo' ? 220 : 100;
+          sliderDiv.querySelector('.range-fill').style.left = '0%';
+          sliderDiv.querySelector('.range-fill').style.width = '100%';
+          const valsEl = sliderDiv.closest('.slider-row').querySelector('.slider-vals');
+          valsEl.textContent = f.key === 'tempo' ? '60–220' : '0.0–1.0';
+        });
+        updateAudioResults();
+        drawRadar();
+      });
+
+      // Add filtered to staging
+      document.getElementById('add-audio-filter')?.addEventListener('click', () => {
+        const matched = getFilteredArtists();
+        if (!matched.length) return;
+        const filterAudio = {};
+        if (audioFilters.energy[0] > 0 || audioFilters.energy[1] < 1) filterAudio.energy = [...audioFilters.energy];
+        if (audioFilters.danceability[0] > 0 || audioFilters.danceability[1] < 1) filterAudio.danceability = [...audioFilters.danceability];
+        if (audioFilters.valence[0] > 0 || audioFilters.valence[1] < 1) filterAudio.valence = [...audioFilters.valence];
+        if (audioFilters.acousticness[0] > 0 || audioFilters.acousticness[1] < 1) filterAudio.acousticness = [...audioFilters.acousticness];
+        if (audioFilters.instrumentalness[0] > 0 || audioFilters.instrumentalness[1] < 1) filterAudio.instrumentalness = [...audioFilters.instrumentalness];
+        if (audioFilters.tempo[0] > 60 || audioFilters.tempo[1] < 220) filterAudio.tempo = [...audioFilters.tempo];
+        addToStaging({
+          type: 'audio_range',
+          name: `Audio Filter (${matched.length} artists)`,
+          source: { tab: 'library', element: 'audio_filter', type: 'audio_range' },
+          artistIds: matched.map(a => a.id || a.name),
+          filters: Object.keys(filterAudio).length ? { audio: filterAudio } : {},
+        });
+      });
+
+      updateAudioResults();
+    }
+
+    function getFilteredArtists() {
+      return artistsData.filter(a => {
+        const ap = a.audio_profile || {};
+        const tempo = ap.tempo != null ? ap.tempo * 200 : null;
+        return (
+          (ap.energy          == null || (ap.energy          >= audioFilters.energy[0]           && ap.energy          <= audioFilters.energy[1]))          &&
+          (ap.danceability    == null || (ap.danceability    >= audioFilters.danceability[0]     && ap.danceability    <= audioFilters.danceability[1]))    &&
+          (ap.valence         == null || (ap.valence         >= audioFilters.valence[0]          && ap.valence         <= audioFilters.valence[1]))         &&
+          (ap.acousticness    == null || (ap.acousticness    >= audioFilters.acousticness[0]     && ap.acousticness    <= audioFilters.acousticness[1]))    &&
+          (ap.instrumentalness== null || (ap.instrumentalness>= audioFilters.instrumentalness[0] && ap.instrumentalness<= audioFilters.instrumentalness[1])) &&
+          (tempo              == null || (tempo              >= audioFilters.tempo[0]            && tempo              <= audioFilters.tempo[1]))
+        );
+      });
+    }
+
+    function updateAudioResults() {
+      const matched = getFilteredArtists();
+      const countEl = document.getElementById('audio-match-count');
+      const listEl  = document.getElementById('audio-match-list');
+      if (!countEl || !listEl) return;
+      countEl.textContent = `${matched.length} artists match`;
+      // Show top 30 artists collapsed
+      listEl.innerHTML = matched.slice(0,30).map(a => renderArtistRow(a)).join('') +
+        (matched.length > 30 ? `<div class="tree-empty">+${matched.length-30} more — use "Add Filtered" to include all</div>` : '');
+      attachArtistHandlers(listEl);
+    }
+
+    function drawRadar() {
+      const canvas = document.getElementById('radar-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const cx = W / 2, cy = H / 2;
+      const r = Math.min(W, H) / 2 - 28;
+      const features = ['energy','danceability','valence','acousticness','instrumentalness'];
+      const N = features.length;
+      const angles = features.map((_, i) => -Math.PI / 2 + (2 * Math.PI * i) / N);
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid rings
+      for (let ring = 1; ring <= 4; ring++) {
+        const rr = r * ring / 4;
+        ctx.beginPath();
+        angles.forEach((a, i) => {
+          const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.stroke();
+      }
+
+      // Axis lines
+      angles.forEach(a => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.stroke();
+      });
+
+      // Library average polygon
+      const avg = computeAudioAverages(artistsData);
+      const avgVals = features.map(f => avg[f] ?? 0);
+      drawPolygon(ctx, cx, cy, r, angles, avgVals, 'rgba(139,92,246,0.15)', 'rgba(139,92,246,0.5)');
+
+      // Filter range polygon (min values)
+      if (audioFilterEnabled) {
+        const filterVals = features.map(f => (audioFilters[f][0] + audioFilters[f][1]) / 2);
+        drawPolygon(ctx, cx, cy, r, angles, filterVals, 'rgba(52,211,153,0.1)', 'rgba(52,211,153,0.6)');
+      }
+
+      // Labels
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      features.forEach((f, i) => {
+        const a = angles[i];
+        const lx = cx + (r + 18) * Math.cos(a);
+        const ly = cy + (r + 18) * Math.sin(a);
+        ctx.fillText(['Nrg','Dance','Val','Ac','Ins'][i], lx, ly);
+      });
+    }
+
+    function drawPolygon(ctx, cx, cy, r, angles, vals, fill, stroke) {
+      ctx.beginPath();
+      angles.forEach((a, i) => {
+        const rr = r * Math.max(0, Math.min(1, vals[i]));
+        const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // ─── Communities view ─────────────────────────────────────────────────────
+    function renderCommunitiesView() {
+      try {
+      const commCount = Object.keys(graphData?.communities || {}).length;
+      const clusterCount = Object.keys(embeddingData?.clusters || {}).length;
+
+      const totalArtists = artistsData.length;
+      const totalTracks = artistsData.reduce((s,a)=>s+(a.track_count||0),0);
+      const largestComm = graphData?._commList?.[0] || null;
+      const commSummaryRows = graphData ? (() => {
+        // pre-build commList for summary (reuse after renderArtistGraphContent sets it)
+        const comms = Object.entries(graphData.communities || {}).map(([id, members]) => {
+          const arr = Array.isArray(members) ? members : Object.keys(members || {});
+          return arr.length;
+        }).sort((a,b)=>b-a);
+        return comms;
+      })() : [];
+
+      content.innerHTML = `
+        <div class="drill-section drill-section--open" id="sec-comm-summary">
+          <div class="drill-header" data-sec="comm-summary">
+            <span class="drill-chevron" style="transform:rotate(90deg)">&#9654;</span>
+            <span class="drill-title">Overview</span>
+            <span class="drill-meta">${commCount} communities · ${clusterCount} clusters</span>
+          </div>
+          <div class="drill-body" id="body-comm-summary">
+            <div class="comm-summary-grid">
+              <div class="comm-summary-stat"><span class="comm-summary-val">${totalArtists.toLocaleString()}</span><span class="comm-summary-lbl">Artists</span></div>
+              <div class="comm-summary-stat"><span class="comm-summary-val">${totalTracks.toLocaleString()}</span><span class="comm-summary-lbl">Tracks</span></div>
+              <div class="comm-summary-stat"><span class="comm-summary-val">${commCount}</span><span class="comm-summary-lbl">Graph Comm.</span></div>
+              <div class="comm-summary-stat"><span class="comm-summary-val">${clusterCount}</span><span class="comm-summary-lbl">UMAP Clusters</span></div>
+            </div>
+            ${commSummaryRows.length ? `
+              <div class="comm-summary-label">Community sizes</div>
+              <div class="comm-size-bars">
+                ${commSummaryRows.slice(0,10).map((n,i) => `
+                  <div class="comm-size-bar" title="${n} artists" style="height:${Math.max(4,(n/commSummaryRows[0]*40)).toFixed(0)}px"></div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+        <div class="drill-section" id="sec-artist-graph">
+          <div class="drill-header" data-sec="artist-graph">
+            <span class="drill-chevron">&#9654;</span>
+            <span class="drill-title">Artist Graph</span>
+            <span class="drill-meta">${commCount} communities</span>
+          </div>
+          <div class="drill-body" id="body-artist-graph">
+            ${graphData ? renderArtistGraphContent() : '<div class="tree-empty">No graph data — run pipeline first.</div>'}
+          </div>
+        </div>
+        <div class="drill-section" id="sec-genre-graph">
+          <div class="drill-header" data-sec="genre-graph">
+            <span class="drill-chevron">&#9654;</span>
+            <span class="drill-title">Genre Graph</span>
+            <span class="drill-meta">${genreGraphData ? `${genreGraphData.nodes?.length || 0} genres · ${Object.keys(genreGraphData.communities || {}).length > 0 ? Math.max(...Object.values(genreGraphData.communities))+1 : 0} communities` : 'Not computed'}</span>
+          </div>
+          <div class="drill-body" id="body-genre-graph">
+            ${genreGraphData ? renderGenreGraphContent() : '<div class="tree-empty" style="padding:var(--space-4)">Run pipeline to compute genre graph.</div>'}
+          </div>
+        </div>
+        <div class="drill-section" id="sec-embedding">
+          <div class="drill-header" data-sec="embedding">
+            <span class="drill-chevron">&#9654;</span>
+            <span class="drill-title">Embedding Clusters</span>
+            <span class="drill-meta">${clusterCount} clusters</span>
+          </div>
+          <div class="drill-body" id="body-embedding">
+            ${renderEmbeddingContent()}
+          </div>
+        </div>
+      `;
+
+      attachDrillHandlers();
+      attachCommunityHandlers();
+      attachGenreCommunityHandlers();
+      attachEmbeddingClusterHandlers(document.getElementById('body-embedding'));
+      } catch(err) {
+        content.innerHTML = `<div class="tree-empty text-error" style="padding:var(--space-6)">Communities error: ${err.message}</div>`;
+        console.error('renderCommunitiesView error:', err);
+      }
+    }
+
+    function renderArtistGraphContent() {
+      const communities = graphData.communities || {};
+
+      // Build community stats
+      const commList = Object.entries(communities).map(([id, members]) => {
+        const memberArr = Array.isArray(members) ? members : Object.keys(members || {});
+        const commArtists = artistsData.filter(a => memberArr.includes(a.id || a.name));
+        const genres = {};
+        const decades = {};
+        commArtists.forEach(a => {
+          (a.genres || []).slice(0,3).forEach(g => { genres[g] = (genres[g]||0)+1; });
+          const d = getDecade(a.avg_year);
+          if (d !== 'Unknown') decades[d] = (decades[d]||0)+1;
+        });
+          const n = commArtists.length || 1;
+        const parentGenres = {};
+        commArtists.forEach(a => { const p = a.parent_genre; if (p) parentGenres[p] = (parentGenres[p]||0)+1; });
+        const subgenres = {};
+        commArtists.forEach(a => { const g = a.genres?.[0]; if (g) subgenres[g] = (subgenres[g]||0)+1; });
+        const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
+        const topPG = Object.entries(parentGenres).sort((a,b)=>b[1]-a[1])[0];
+        const topSG = Object.entries(subgenres).sort((a,b)=>b[1]-a[1])[0];
+        const topDec = Object.entries(decades).sort((a,b)=>b[1]-a[1])[0];
+        const mainGenre = topPG && topPG[1]/n > 0.3 ? cap(topPG[0]) : null;
+        const mainSub = topSG && topSG[1]/n > 0.2 && topSG[0] !== topPG?.[0] ? cap(topSG[0]) : null;
+        const mainDecade = topDec && topDec[1]/n > 0.3 ? topDec[0] : null;
+        const nameParts = [mainGenre, mainSub, mainDecade].filter(Boolean);
+        const smartName = nameParts.length ? nameParts.join(' · ') : (commArtists[0]?.name || `Group ${id}`);
+        const totalTracks = commArtists.reduce((s,a)=>s+(a.track_count||0),0);
+        return { id, members: memberArr, artists: commArtists, smartName, totalTracks };
+      }).sort((a,b) => b.members.length - a.members.length);
+
+      // Disambiguate duplicate smart names
+      const nameCounts = {};
+      commList.forEach(c => { nameCounts[c.smartName] = (nameCounts[c.smartName] || 0) + 1; });
+      const nameSeen = {};
+      commList.forEach(c => {
+        if (nameCounts[c.smartName] > 1) {
+          nameSeen[c.smartName] = (nameSeen[c.smartName] || 0) + 1;
+          c.smartName = `${c.smartName} (${nameSeen[c.smartName]})`;
+        }
+      });
+
+      // Store commList on graphData so attachCommunityHandlers can access it
+      graphData._commList = commList;
+
+      return `
+        <div class="comm-preset-bar">
+          <span class="comm-preset-label">Preset</span>
+          <select class="select select--sm" id="graph-preset-inner">
+            <option value="balanced"${graphPreset==='balanced'?' selected':''}>Balanced</option>
+            <option value="audio_focused"${graphPreset==='audio_focused'?' selected':''}>Audio Focused</option>
+            <option value="genre_focused"${graphPreset==='genre_focused'?' selected':''}>Genre Focused</option>
+            <option value="era_focused"${graphPreset==='era_focused'?' selected':''}>Era Focused</option>
+            <option value="audio_era"${graphPreset==='audio_era'?' selected':''}>Audio + Era</option>
+          </select>
+        </div>
+        <div class="community-list" id="community-list">
+          ${commList.map(comm => `
+            <div class="tree-node community-node" data-type="community" data-id="${comm.id}">
+              <div class="tree-row">
+                <span class="tree-chevron">&#9654;</span>
+                <span class="comm-id">C${comm.id}</span>
+                <span class="tree-label">${comm.smartName}</span>
+                <span class="tree-meta">${comm.members.length} artists · ${comm.totalTracks.toLocaleString()} tracks</span>
+                <div class="tree-actions">
+                  <button class="add-btn" data-action="add-community" data-community-id="${comm.id}" data-community-name="${esc(comm.smartName)}">+ Add all</button>
+                </div>
+              </div>
+              <div class="tree-children"></div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderGenreGraphContent() {
+      if (!genreGraphData) return '<div class="tree-empty">No genre graph data.</div>';
+      const nodes = genreGraphData.nodes || [];
+      const communities = genreGraphData.communities || {}; // {genre: communityId}
+
+      // Group genres by community
+      const commMap = {};
+      for (const node of nodes) {
+        const cid = String(node.community ?? 0);
+        if (!commMap[cid]) commMap[cid] = [];
+        commMap[cid].push(node);
+      }
+
+      // Sort communities by size
+      const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
+      const commList = Object.entries(commMap)
+        .map(([id, genreNodes]) => {
+          const sorted = genreNodes.slice().sort((a,b)=>(b.track_count||0)-(a.track_count||0));
+          const totalTracks = sorted.reduce((s,n) => s+(n.track_count||0), 0);
+          const bridges = sorted.filter(n => n.is_bridge).map(n => n.label||n.id);
+          // Smart name: top 2 specific genre labels (the actual genre names, not parents)
+          const topLabels = sorted.slice(0, 2).map(n => cap(n.label || n.id || '')).filter(Boolean);
+          const smartName = topLabels.join(' · ') || `Group ${id}`;
+          return { id, genres: sorted, smartName, totalTracks, bridges };
+        })
+        .sort((a,b) => b.genres.length - a.genres.length);
+
+      // Disambiguate duplicate names
+      const gNameCounts = {};
+      commList.forEach(c => { gNameCounts[c.smartName] = (gNameCounts[c.smartName] || 0) + 1; });
+      const gNameSeen = {};
+      commList.forEach(c => {
+        if (gNameCounts[c.smartName] > 1) {
+          gNameSeen[c.smartName] = (gNameSeen[c.smartName] || 0) + 1;
+          c.smartName = `${c.smartName} (${gNameSeen[c.smartName]})`;
+        }
+      });
+
+      return `
+        <div class="community-list" id="genre-community-list">
+          ${commList.map(comm => `
+            <div class="tree-node community-node" data-type="genre-community" data-id="${comm.id}">
+              <div class="tree-row">
+                <span class="tree-chevron">&#9654;</span>
+                <span class="comm-id">C${comm.id}</span>
+                <span class="tree-label">${comm.smartName}</span>
+                <span class="tree-meta">${comm.genres.length} genres · ${comm.totalTracks.toLocaleString()} tracks</span>
+                <div class="tree-actions">
+                  <button class="add-btn" data-action="add-genre-community" data-community-id="${comm.id}" data-community-name="${esc(comm.smartName)}">+ Add all</button>
+                </div>
+              </div>
+              <div class="tree-children">
+                ${comm.genres.slice(0, 20).map(n => `
+                  <div class="tree-node tree-node--artist" data-type="genre" data-genre="${esc(n.label||n.id)}">
+                    <div class="tree-row tree-row--indent">
+                      <span class="tree-label">${n.label||n.id}${n.is_bridge ? ' <span style="color:var(--accent);font-size:10px">bridge</span>':''}</span>
+                      <span class="tree-meta">${n.track_count||0} tracks</span>
+                      <div class="tree-actions">
+                        <button class="add-btn" data-action="add-genre" data-genre="${esc(n.label||n.id)}">+ Add</button>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+                ${comm.genres.length > 20 ? `<div class="tree-empty">+${comm.genres.length-20} more genres</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function buildInvertedClusters(raw) {
+      const inv = {};
+      for (const [artist, clusterId] of Object.entries(raw || {})) {
+        const val = raw[artist];
+        if (Array.isArray(val)) {
+          // Already {cluster_id: [artists]} format — just copy
+          inv[artist] = val;
+        } else {
+          // {artist: cluster_id} format — invert
+          const key = String(clusterId);
+          if (!inv[key]) inv[key] = [];
+          inv[key].push(artist);
+        }
+      }
+      // Detect which format was used: if keys are artists & values are ints, inversion happened correctly
+      // If values were arrays, we incorrectly used artist keys — re-detect
+      const firstVal = Object.values(raw || {})[0];
+      if (!Array.isArray(firstVal) && firstVal !== undefined) return inv; // was {artist: id} — inverted correctly
+      return raw; // was already {cluster_id: [artists]}
+    }
+
+    function renderEmbeddingContent() {
+      const EMB_PRESETS = [
+        ['combined_balanced', 'Combined (Balanced)'],
+        ['audio_default',     'Audio (Default)'],
+        ['audio_local',       'Audio (Local)'],
+        ['audio_global',      'Audio (Global)'],
+        ['audio_spread',      'Audio (Spread)'],
+        ['audio_euclidean',   'Audio (Euclid)'],
+        ['genre',             'Genre Only'],
+        ['era',               'Era'],
+        ['combined_audio',    'Audio Heavy'],
+        ['combined_genre',    'Genre Heavy'],
+        ['combined_era',      'Era Heavy'],
+        ['combined_equal',    'Equal'],
+      ];
+      const presetBar = `
+        <div class="comm-preset-bar">
+          <span class="comm-preset-label">Preset</span>
+          <select class="select select--sm" id="emb-preset-inner">
+            ${EMB_PRESETS.map(([v, l]) => `<option value="${v}"${embeddingPreset === v ? ' selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+      `;
+
+      if (!embeddingData) return presetBar + '<div class="tree-empty" style="padding:var(--space-6)">Embedding data not available</div>';
+      invertedEmbClusters = buildInvertedClusters(embeddingData.clusters || {});
+      const clusters = invertedEmbClusters;
+      const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
+      const clusterList = Object.entries(clusters)
+        .map(([id, members]) => {
+          const memberArr = Array.isArray(members) ? members : Object.keys(members || {});
+          const arts = artistsData.filter(a => memberArr.includes(a.id || a.name));
+          const totalTracks = arts.reduce((s,a)=>s+(a.track_count||0),0);
+          // Smart name: same threshold logic as artist communities
+          const n = arts.length || 1;
+          const parentGenres = {};
+          const subgenres = {};
+          const decades = {};
+          arts.forEach(a => {
+            const p = a.parent_genre; if (p) parentGenres[p] = (parentGenres[p]||0)+1;
+            const g = a.genres?.[0]; if (g) subgenres[g] = (subgenres[g]||0)+1;
+            const d = getDecade(a.avg_year); if (d !== 'Unknown') decades[d] = (decades[d]||0)+1;
+          });
+          const topPG = Object.entries(parentGenres).sort((a,b)=>b[1]-a[1])[0];
+          const topSG = Object.entries(subgenres).sort((a,b)=>b[1]-a[1])[0];
+          const topD  = Object.entries(decades).sort((a,b)=>b[1]-a[1])[0];
+          const mainGenre  = topPG && topPG[1]/n > 0.3 ? cap(topPG[0]) : null;
+          const mainSub    = topSG && topSG[1]/n > 0.2 && topSG[0] !== topPG?.[0] ? cap(topSG[0]) : null;
+          const mainDecade = topD  && topD[1]/n  > 0.3 ? topD[0] : null;
+          const nameParts  = [mainGenre, mainSub, mainDecade].filter(Boolean);
+          const smartName  = nameParts.length ? nameParts.join(' · ') : (arts[0]?.name || `Cluster ${id}`);
+          return { id, members: memberArr, arts, totalTracks, smartName };
+        })
+        .sort((a,b)=>b.members.length-a.members.length);
+
+      // Disambiguate duplicate names
+      const eNameCounts = {};
+      clusterList.forEach(c => { eNameCounts[c.smartName] = (eNameCounts[c.smartName]||0)+1; });
+      const eNameSeen = {};
+      clusterList.forEach(c => {
+        if (eNameCounts[c.smartName] > 1) {
+          eNameSeen[c.smartName] = (eNameSeen[c.smartName]||0)+1;
+          c.smartName = `${c.smartName} (${eNameSeen[c.smartName]})`;
+        }
+      });
+
+      if (!clusterList.length) return presetBar + '<div class="tree-empty" style="padding:var(--space-6)">No embedding clusters found</div>';
+
+      return presetBar + `<div class="community-list">${clusterList.map(c => `
+        <div class="tree-node community-node" data-type="emb-cluster" data-id="${c.id}">
+          <div class="tree-row">
+            <span class="tree-chevron">&#9654;</span>
+            <span class="comm-id">U${c.id}</span>
+            <span class="tree-label">${c.smartName}</span>
+            <span class="tree-meta">${c.members.length} artists · ${c.totalTracks.toLocaleString()} tracks</span>
+            <div class="tree-actions">
+              <button class="add-btn" data-action="add-cluster" data-cluster-id="${c.id}" data-cluster-name="${esc(c.smartName)}">+ Add all</button>
+            </div>
+          </div>
+          <div class="tree-children"></div>
+        </div>
+      `).join('')}</div>`;
+    }
+
+    function attachGraphTabHandlers() {
+      document.querySelectorAll('.gv-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('gv-tab--disabled')) return;
+          document.querySelectorAll('.gv-tab').forEach(b => b.classList.remove('gv-tab--active'));
+          btn.classList.add('gv-tab--active');
+          const tab = btn.dataset.gtab;
+          document.getElementById('gv-artist').style.display    = tab === 'artist'    ? '' : 'none';
+          document.getElementById('gv-embedding').style.display = tab === 'embedding' ? '' : 'none';
+          document.getElementById('gv-genre').style.display     = tab === 'genre'     ? '' : 'none';
+          // attach handlers for embedding clusters when tab first opens
+          if (tab === 'embedding') attachEmbeddingClusterHandlers();
+        });
+      });
+    }
+
+    function attachCommunityHandlers() {
+      const commList = graphData?._commList || [];
+      content.querySelectorAll('[data-type="community"] > .tree-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const commId = node.dataset.id;
+          const comm = commList.find(c => c.id === commId);
+          const children = node.querySelector('.tree-children');
+
+          closeSiblings(node, '[data-type="community"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+
+          if (isOpen && !children.innerHTML.trim() && comm) {
+            children.innerHTML = renderCommSubLibrary(comm);
+            attachCommSubLibraryHandlers(children, comm);
+            children.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+          }
+
+          if (isOpen && comm) setSelection('community', comm.smartName || `C${commId}`, comm.artists);
+          else clearSelection();
+        });
+      });
+
+      content.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+
+      const presetInner = document.getElementById('graph-preset-inner');
+      if (presetInner) {
+        presetInner.addEventListener('change', async (e) => {
+          graphPreset = e.target.value;
+          try {
+            graphData = await api.getGraph(graphPreset);
+            // Re-render only the artist graph body (don't collapse other sections)
+            const body = document.getElementById('body-artist-graph');
+            if (body) {
+              body.innerHTML = renderArtistGraphContent();
+              attachCommunityHandlers();
+            } else {
+              renderView();
+            }
+          } catch (err) { console.error(err); }
+        });
+      }
+    }
+
+    function attachGenreCommunityHandlers() {
+      if (!genreGraphData) return;
+      content.querySelectorAll('[data-type="genre-community"] > .tree-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const children = node.querySelector('.tree-children');
+          closeSiblings(node, '[data-type="genre-community"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+          if (isOpen) {
+            children.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+            // Show selection info
+            const commId = node.dataset.id;
+            const genreNodes = (genreGraphData.nodes || []).filter(n => String(n.community) === commId);
+            const genreNames = genreNodes.map(n => n.label || n.id);
+            const artists = artistsData.filter(a => (a.genres||[]).some(g => genreNames.includes(g)));
+            setSelection('genre-community', `Genre C${commId}`, artists);
+          } else {
+            clearSelection();
+          }
+        });
+      });
+      content.querySelectorAll('[data-type="genre-community"] [data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+    }
+
+    function attachEmbeddingClusterHandlers(container) {
+      container = container || document.getElementById('body-embedding');
+      if (!container) return;
+      container.querySelectorAll('[data-type="emb-cluster"] > .tree-row').forEach(row => {
+        if (row.dataset.bound) return;
+        row.dataset.bound = '1';
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const clusterId = node.dataset.id;
+          const rawCluster = invertedEmbClusters[clusterId] || [];
+          const cluster = Array.isArray(rawCluster) ? rawCluster : Object.keys(rawCluster);
+          const arts = artistsData.filter(a => cluster.includes(a.id||a.name));
+          closeSiblings(node, '[data-type="emb-cluster"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+          const children = node.querySelector('.tree-children');
+          if (isOpen && !children.innerHTML.trim()) {
+            children.innerHTML = arts.sort((a,b)=>(b.track_count||0)-(a.track_count||0)).map(a=>renderArtistRow(a)).join('');
+            attachArtistHandlers(children);
+          }
+          if (isOpen) setSelection('cluster', `U${clusterId}`, arts);
+          else clearSelection();
+        });
+      });
+      container.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+
+      // Embedding preset dropdown
+      const embPresetInner = container.querySelector('#emb-preset-inner');
+      if (embPresetInner) {
+        embPresetInner.addEventListener('change', async (e) => {
+          embeddingPreset = e.target.value;
+          try {
+            embeddingData = await api.getEmbedding(embeddingPreset);
+          } catch (err) { console.error('Failed to load embedding:', err); }
+          const body = document.getElementById('body-embedding');
+          if (body) {
+            body.innerHTML = renderEmbeddingContent();
+            attachEmbeddingClusterHandlers(body);
+          }
+        });
+      }
+    }
+
+    function renderCommSubLibrary(comm) {
+      const commGenreTree = buildParentGenreTree(comm.artists);
+      const commDecades = buildDecadeTree(comm.artists);
+      return `
+        <div class="comm-sublibrary">
+          <div class="tree-node" data-type="cg">
+            <div class="tree-row">
+              <span class="tree-chevron">&#9654;</span>
+              <span class="tree-label">By Genre</span>
+              <span class="tree-meta">${Object.keys(commGenreTree).length} genres</span>
+            </div>
+            <div class="tree-children">
+              ${renderParentGenreList(commGenreTree, comm.artists)}
+            </div>
+          </div>
+          <div class="tree-node" data-type="cd">
+            <div class="tree-row">
+              <span class="tree-chevron">&#9654;</span>
+              <span class="tree-label">By Decade</span>
+            </div>
+            <div class="tree-children">
+              ${commDecades.filter(d=>d.decade!=='Unknown').map(d => `
+                <div class="tree-node tree-node--l2" data-type="cdd" data-decade="${esc(d.decade)}">
+                  <div class="tree-row">
+                    <span class="tree-chevron">&#9654;</span>
+                    <span class="tree-label">${d.decade}</span>
+                    <span class="tree-meta">${d.count} artists</span>
+                    <div class="tree-actions"><button class="add-btn add-btn--ghost" data-action="add-decade" data-decade="${esc(d.decade)}">+ Add</button></div>
+                  </div>
+                  <div class="tree-children"></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="tree-node" data-type="ca">
+            <div class="tree-row">
+              <span class="tree-chevron">&#9654;</span>
+              <span class="tree-label">Artists</span>
+              <span class="tree-meta">${comm.artists.length} total</span>
+            </div>
+            <div class="tree-children">
+              ${comm.artists.sort((a,b)=>(b.track_count||0)-(a.track_count||0)).map(a => renderArtistRow(a)).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function attachCommSubLibraryHandlers(container, comm) {
+      // Sub-section toggles (By Genre, By Decade, Artists)
+      container.querySelectorAll(':scope > .comm-sublibrary > [data-type="cg"] > .tree-row, :scope > .comm-sublibrary > [data-type="cd"] > .tree-row, :scope > .comm-sublibrary > [data-type="ca"] > .tree-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          closeSiblings(node, '.tree-node[data-type="cg"], .tree-node[data-type="cd"], .tree-node[data-type="ca"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+
+          if (isOpen) {
+            // Attach genre handlers within this subtree
+            if (node.dataset.type === 'cg') {
+              attachGenreHandlersIn(node.querySelector('.tree-children'));
+            } else if (node.dataset.type === 'cd') {
+              attachCommDecadeHandlers(node.querySelector('.tree-children'), comm);
+            } else if (node.dataset.type === 'ca') {
+              attachArtistHandlers(node.querySelector('.tree-children'));
+            }
+          }
+        });
+      });
+    }
+
+    function attachGenreHandlersIn(container) {
+      if (!container) return;
+      container.querySelectorAll('[data-type="pg"] > .tree-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          closeSiblingsIn(container, node, '[data-type="pg"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+        });
+      });
+      container.querySelectorAll('[data-type="sg"] > .tree-row').forEach(row => {
+        row.addEventListener('click', async (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          closeSiblingsIn(container, node, '[data-type="sg"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+          const children = node.querySelector('.tree-children');
+          if (isOpen && !children.innerHTML.trim()) {
+            const genreName = node.dataset.id;
+            const artists = artistsData.filter(a => (a.genres||[]).includes(genreName))
+              .sort((a,b)=>(b.track_count||0)-(a.track_count||0));
+            children.innerHTML = artists.map(a => renderArtistRow(a)).join('');
+            attachArtistHandlers(children);
+          }
+        });
+      });
+      container.querySelectorAll('.show-more-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); });
+      });
+      container.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+    }
+
+    function attachCommDecadeHandlers(container, comm) {
+      if (!container) return;
+      container.querySelectorAll('[data-type="cdd"] > .tree-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const decade = node.dataset.decade;
+          const children = node.querySelector('.tree-children');
+          closeSiblingsIn(container, node, '[data-type="cdd"]');
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+          if (isOpen && !children.innerHTML.trim()) {
+            const artists = comm.artists.filter(a => getDecade(a.avg_year) === decade)
+              .sort((a,b)=>(b.track_count||0)-(a.track_count||0));
+            children.innerHTML = artists.map(a => renderArtistRow(a)).join('');
+            attachArtistHandlers(children);
+          }
+        });
+      });
+      container.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+    }
+
+    // ─── Artist rows & Track loading ──────────────────────────────────────────
+    function renderArtistRow(artist) {
+      const id = artist.id || artist.name;
+      return `
+        <div class="tree-node tree-node--artist" data-type="artist" data-id="${esc(id)}">
+          <div class="tree-row">
+            <span class="tree-chevron">&#9654;</span>
+            <span class="tree-label">${artist.name}</span>
+            <span class="tree-meta">${artist.track_count || 0}t${artist.avg_year ? ' · '+(Math.floor((artist.avg_year||0)/10)*10)+'s' : ''}</span>
+            <div class="tree-actions">
+              <button class="add-btn add-btn--ghost" data-action="add-artist" data-artist-id="${esc(id)}" data-artist-name="${esc(artist.name)}">+ Artist</button>
+            </div>
+          </div>
+          <div class="tree-children">
+            <div class="track-loading" style="display:none">Loading tracks...</div>
+            <div class="track-list"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function attachArtistHandlers(container) {
+      if (!container) return;
+      container.querySelectorAll('[data-type="artist"] > .tree-row').forEach(row => {
+        row.addEventListener('click', async (e) => {
+          if (e.target.closest('.add-btn')) return;
+          const node = row.parentElement;
+          const artistId = node.dataset.id;
+          const children = node.querySelector('.tree-children');
+          const trackList = children.querySelector('.track-list');
+          const loadingEl = children.querySelector('.track-loading');
+
+          closeSiblingsArtist(node);
+          const isOpen = node.classList.toggle('tree-node--open');
+          row.querySelector('.tree-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+
+          if (isOpen && !trackList.innerHTML.trim()) {
+            loadingEl.style.display = '';
+            try {
+              const res = await api.getArtistTracks(artistId);
+              loadingEl.style.display = 'none';
+              const tracks = res.tracks || [];
+              trackList.innerHTML = tracks.length
+                ? tracks.map(t => `
+                  <div class="track-row" data-track-id="${esc(t.track_id)}">
+                    <span class="track-dot">&#9679;</span>
+                    <span class="track-name">${t.track_name || '(unknown)'}</span>
+                    <span class="track-album">${t.album_name || ''}</span>
+                    <span class="track-year">${(t.album_date||'').slice(0,4)}</span>
+                    <button class="add-btn add-btn--ghost add-btn--xs" data-action="add-track" data-track-id="${esc(t.track_id)}" data-track-name="${esc(t.track_name)}" data-artist-id="${esc(artistId)}" data-artist-name="${esc(node.querySelector('.tree-label').textContent)}">+</button>
+                  </div>
+                `).join('')
+                : '<div class="tree-empty">No tracks found</div>';
+              trackList.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+            } catch (err) {
+              loadingEl.style.display = 'none';
+              trackList.innerHTML = `<div class="tree-empty text-error">Failed to load tracks</div>`;
+            }
+          }
+        });
+      });
+      container.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
+    }
+
+    // Close artist siblings within the same tree-children container (allow multiple artists open at same level)
+    function closeSiblingsArtist(node) {
+      const parent = node.parentElement;
+      if (!parent) return;
+      parent.querySelectorAll(':scope > [data-type="artist"].tree-node--open').forEach(other => {
+        if (other !== node) {
+          other.classList.remove('tree-node--open');
+          other.querySelector('.tree-chevron').style.transform = '';
+        }
+      });
+    }
+
+    // ─── Accordion helpers ────────────────────────────────────────────────────
+    function toggleNode(node, siblingSelector) {
+      const isOpen = node.classList.toggle('tree-node--open');
+      const chevron = node.querySelector(':scope > .tree-row .tree-chevron');
+      if (chevron) chevron.style.transform = isOpen ? 'rotate(90deg)' : '';
+      if (isOpen) closeSiblings(node, siblingSelector);
+    }
+
+    function closeSiblings(node, selector) {
+      const parent = node.parentElement;
+      if (!parent) return;
+      parent.querySelectorAll(`:scope > ${selector}.tree-node--open`).forEach(other => {
+        if (other !== node) {
+          other.classList.remove('tree-node--open');
+          const chev = other.querySelector(':scope > .tree-row .tree-chevron');
+          if (chev) chev.style.transform = '';
+        }
+      });
+    }
+
+    function closeSiblingsIn(container, node, selector) {
+      container.querySelectorAll(`${selector}.tree-node--open`).forEach(other => {
+        if (other !== node) {
+          other.classList.remove('tree-node--open');
+          const chev = other.querySelector(':scope > .tree-row .tree-chevron');
+          if (chev) chev.style.transform = '';
+        }
+      });
+    }
+
+    // ─── Section accordion ────────────────────────────────────────────────────
+    function attachDrillHandlers() {
+      document.querySelectorAll('.drill-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const section = header.parentElement;
+          const isOpen = section.classList.toggle('drill-section--open');
+          header.querySelector('.drill-chevron').style.transform = isOpen ? 'rotate(90deg)' : '';
+          if (!isOpen) clearSelection();
+          // Close other sections and clear selection
+          document.querySelectorAll('.drill-section--open').forEach(other => {
+            if (other !== section) {
+              other.classList.remove('drill-section--open');
+              other.querySelector('.drill-chevron').style.transform = '';
+            }
+          });
+        });
+      });
+    }
+
+    // ─── Action handler ───────────────────────────────────────────────────────
+    function handleAction(e) {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      e.stopPropagation();
+      const action = btn.dataset.action;
+
+      switch (action) {
+        case 'add-parent-genre': {
+          const genre = btn.dataset.genre;
+          const ids = artistsData.filter(a => a.parent_genre === genre).map(a => a.id || a.name);
+          addToStaging({ type: 'genre', name: `${genre} (${ids.length})`, source: { tab: currentView, element: `parent_${genre}`, type: 'parent_genre' }, artistIds: ids });
+          break;
+        }
+        case 'add-genre': {
+          const genre = btn.dataset.genre;
+          const ids = artistsData.filter(a => (a.genres||[]).includes(genre)).map(a => a.id||a.name);
+          addToStaging({ type: 'genre', name: `${genre} (${ids.length})`, source: { tab: currentView, element: `genre_${genre}`, type: 'genre' }, artistIds: ids });
+          break;
+        }
+        case 'add-decade-genre': {
+          const decade = btn.dataset.decade, genre = btn.dataset.genre;
+          const ids = artistsData.filter(a => getDecade(a.avg_year) === decade && a.parent_genre === genre).map(a => a.id||a.name);
+          addToStaging({ type: 'decade', name: `${genre} · ${decade} (${ids.length})`, source: { tab: currentView, element: `dg_${decade}_${genre}`, type: 'decade_genre' }, artistIds: ids });
+          break;
+        }
+        case 'add-decade': {
+          const decade = btn.dataset.decade;
+          const ids = artistsData.filter(a => getDecade(a.avg_year) === decade).map(a => a.id||a.name);
+          addToStaging({ type: 'decade', name: `${decade} (${ids.length})`, source: { tab: currentView, element: `decade_${decade}`, type: 'decade' }, artistIds: ids });
+          break;
+        }
+        case 'add-artist': {
+          const artistId = btn.dataset.artistId, artistName = btn.dataset.artistName;
+          const artist = artistsData.find(a => (a.id||a.name) === artistId);
+          addToStaging({ type: 'artist', name: artistName, source: { tab: currentView, element: artistId, type: 'artist' }, artistIds: [artistId] });
+          break;
+        }
+        case 'add-track': {
+          const trackId = btn.dataset.trackId, trackName = btn.dataset.trackName, artistName = btn.dataset.artistName;
+          const artist = artistsData.find(a => a.name === artistName);
+          const artistId = btn.dataset.artistId || (artist ? artist.id||artist.name : artistName);
+          staging.add({
+            type: 'track', name: trackName || trackId,
+            source: { tab: currentView, element: trackId, type: 'track' },
+            artistIds: artistId ? [artistId] : [],
+            trackIds: [trackId],
+            filters: {},
+            original_count: { artists: 1, tracks: 1 },
+            current_count:  { artists: 1, tracks: 1 },
+          });
+          showToast(`Added "${trackName || trackId}"`);
+          break;
+        }
+        case 'add-community': {
+          const commId = btn.dataset.communityId, commName = btn.dataset.communityName;
+          const rawMembers = (graphData?.communities || {})[commId] || [];
+          const members = Array.isArray(rawMembers) ? rawMembers : Object.keys(rawMembers);
+          addToStaging({ type: 'community', name: `C${commId} · ${commName} (${members.length})`, source: { tab: 'graph', preset: graphPreset, element: `C${commId}`, type: 'community' }, artistIds: members });
+          break;
+        }
+        case 'add-genre-community': {
+          const commId = btn.dataset.communityId, commName = btn.dataset.communityName;
+          const genreNodes = (genreGraphData?.nodes || []).filter(n => String(n.community) === commId);
+          const genreNames = genreNodes.map(n => n.label || n.id);
+          const ids = artistsData.filter(a => (a.genres||[]).some(g => genreNames.includes(g))).map(a => a.id||a.name);
+          addToStaging({ type: 'genre', name: `Genre C${commId} · ${commName} (${ids.length})`, source: { tab: 'communities', element: `genreC${commId}`, type: 'genre_community' }, artistIds: ids });
+          break;
+        }
+        case 'add-cluster': {
+          const clusterId = btn.dataset.clusterId;
+          const rawM = invertedEmbClusters[clusterId] || [];
+          const members = Array.isArray(rawM) ? rawM : Object.keys(rawM);
+          addToStaging({ type: 'cluster', name: `U${clusterId} (${members.length})`, source: { tab: 'embedding', preset: embeddingPreset, element: `U${clusterId}`, type: 'cluster' }, artistIds: members });
+          break;
+        }
+        case 'add-audio-range': {
+          const rangeId = btn.dataset.rangeId;
+          // handled inline
+          break;
+        }
+      }
+    }
+
+    function addToStaging(data) {
+      const trackCount = (data.artistIds || []).reduce((sum, id) => {
+        const a = artistsData.find(a2 => (a2.id||a2.name) === id);
+        return sum + (a?.track_count || 0);
+      }, 0);
+      staging.add({
+        ...data,
+        trackIds: data.trackIds || [],
+        filters: data.filters || {},
+        original_count: { artists: (data.artistIds||[]).length, tracks: trackCount },
+        current_count:  { artists: (data.artistIds||[]).length, tracks: trackCount },
+      });
+      showToast(`Added "${data.name}"`);
+    }
+
+    // ─── Data helpers ─────────────────────────────────────────────────────────
+    function getDecade(year) {
+      if (!year || year < 1900) return 'Unknown';
+      return `${Math.floor(year / 10) * 10}s`;
+    }
+
+    function buildParentGenreTree(data) {
+      const result = {};
+      data.forEach(artist => {
+        const parent = artist.parent_genre || 'other';
+        if (!result[parent]) result[parent] = { artistIds: [], totalCount: 0, subgenres: {} };
+        result[parent].artistIds.push(artist.id || artist.name);
+        result[parent].totalCount++;
+        (artist.genres || []).forEach(g => {
+          if (!result[parent].subgenres[g]) result[parent].subgenres[g] = { name: g, count: 0 };
+          result[parent].subgenres[g].count++;
+        });
+      });
+      for (const p in result) {
+        result[p].subgenres = Object.values(result[p].subgenres).sort((a,b) => b.count - a.count);
+      }
+      return result;
+    }
+
+    function buildDecadeTree(data) {
+      const decades = {};
+      data.forEach(item => {
+        const d = getDecade(item.avg_year);
+        if (!decades[d]) decades[d] = { decade: d, count: 0, genres: {} };
+        decades[d].count++;
+        (item.genres||[]).forEach(g => { decades[d].genres[g] = (decades[d].genres[g]||0)+1; });
+      });
+      return Object.values(decades)
+        .map(d => ({ ...d, topGenres: Object.entries(d.genres).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([g])=>g) }))
+        .sort((a,b) => { const an = parseInt(a.decade)||9999, bn = parseInt(b.decade)||9999; return an-bn; });
+    }
+
+    function computeAudioAverages(data) {
+      const features = ['energy','danceability','valence','acousticness','instrumentalness'];
+      const result = {};
+      features.forEach(f => {
+        const vals = data.map(d => d.audio_profile?.[f]).filter(v => v != null);
+        if (vals.length) result[f] = vals.reduce((a,b)=>a+b,0)/vals.length;
+      });
+      return result;
+    }
+
+    function esc(str) {
+      return (str||'').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+    }
+
+    function showToast(message) {
+      const t = document.createElement('div');
+      t.className = 'toast toast--success';
+      t.textContent = message;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2500);
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    loadData();
+  </script>
+</body>
+</html>

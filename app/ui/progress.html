@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipeline Progress | LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .progress-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .progress-content {
+      flex: 1;
+      padding: var(--space-6);
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .page-header {
+      margin-bottom: var(--space-8);
+      text-align: center;
+    }
+
+    .page-header h1 {
+      font-size: var(--text-2xl);
+      margin-bottom: var(--space-2);
+    }
+
+    /* Status Card */
+    .status-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-8);
+      margin-bottom: var(--space-6);
+      text-align: center;
+    }
+
+    .status-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto var(--space-6);
+      font-size: 2.5rem;
+    }
+
+    .status-icon.pending {
+      background: rgba(234, 179, 8, 0.2);
+      animation: pulse 2s infinite;
+    }
+
+    .status-icon.running {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(34, 211, 238, 0.2));
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-icon.completed {
+      background: rgba(34, 197, 94, 0.2);
+    }
+
+    .status-icon.failed {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    .status-title {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+    }
+
+    .status-subtitle {
+      color: var(--text-muted);
+      margin-bottom: var(--space-6);
+    }
+
+    /* Progress Bar */
+    .progress-bar-container {
+      margin-bottom: var(--space-6);
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: var(--space-2);
+    }
+
+    .progress-bar__fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+      border-radius: 4px;
+      transition: width 0.5s ease-out;
+      position: relative;
+    }
+
+    .progress-bar__fill::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .progress-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    /* Steps List */
+    .steps-section {
+      margin-bottom: var(--space-6);
+    }
+
+    .section-title {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-4);
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: var(--text-sm);
+    }
+
+    .step-item.completed {
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .step-item.current {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(34, 211, 238, 0.05));
+    }
+
+    .step-item__icon {
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+
+    .step-item.completed .step-item__icon {
+      color: var(--success);
+    }
+
+    .step-item.current .step-item__icon {
+      color: var(--accent);
+      animation: pulse 1s infinite;
+    }
+
+    .step-item.pending .step-item__icon {
+      color: var(--text-muted);
+    }
+
+    /* Log Viewer */
+    .log-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-tertiary);
+    }
+
+    .log-header__title {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .log-header__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      padding: var(--space-1) var(--space-2);
+      background: var(--accent-muted);
+      color: var(--accent);
+      border-radius: 9999px;
+      font-size: var(--text-xs);
+    }
+
+    .log-content {
+      height: 300px;
+      overflow-y: auto;
+      padding: var(--space-4);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      line-height: 1.6;
+    }
+
+    .log-line {
+      display: flex;
+      gap: var(--space-3);
+      padding: var(--space-1) 0;
+    }
+
+    .log-line__time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .log-line__step {
+      color: var(--accent);
+      flex-shrink: 0;
+      min-width: 120px;
+    }
+
+    .log-line__message {
+      color: var(--text);
+    }
+
+    .log-line.error .log-line__message {
+      color: var(--error);
+    }
+
+    .log-line.success .log-line__message {
+      color: var(--success);
+    }
+
+    /* Results Card */
+    .results-card {
+      display: none;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      margin-top: var(--space-6);
+    }
+
+    .results-card.visible {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .results-card__title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      margin-bottom: var(--space-4);
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .result-item {
+      text-align: center;
+      padding: var(--space-4);
+      background: var(--bg-tertiary);
+      border-radius: var(--radius);
+    }
+
+    .result-item__value {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+
+    .result-item__label {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      margin-top: var(--space-1);
+    }
+
+    /* Error Display */
+    .error-card {
+      display: none;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      margin-top: var(--space-6);
+    }
+
+    .error-card.visible {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .error-card__title {
+      color: var(--error);
+      font-weight: 600;
+      margin-bottom: var(--space-3);
+    }
+
+    .error-card__message {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      white-space: pre-wrap;
+    }
+
+    /* Actions */
+    .progress-actions {
+      display: flex;
+      gap: var(--space-4);
+      justify-content: center;
+      margin-top: var(--space-8);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-layout">
+    <!-- Top Navigation -->
+    <nav class="nav">
+      <a href="index.html" class="nav__brand">LibraryExplorer</a>
+      <div class="nav__tabs">
+        <a href="wiki.html" class="nav__tab">Wiki</a>
+        <a href="explore-graph-artist.html" class="nav__tab">Explore</a>
+        <a href="browse.html" class="nav__tab">Browse</a>
+        <a href="selected.html" class="nav__tab">Selected</a>
+        <a href="settings.html" class="nav__tab nav__tab--active">Settings</a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="progress-content">
+      <div class="page-header">
+        <h1>Pipeline Progress</h1>
+      </div>
+
+      <!-- Status Card -->
+      <div class="status-card">
+        <div class="status-icon pending" id="status-icon">&#x23F3;</div>
+        <div class="status-title" id="status-title">Initializing Pipeline</div>
+        <div class="status-subtitle" id="status-subtitle">Preparing to process your data...</div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
+          <div class="progress-bar">
+            <div class="progress-bar__fill" id="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="progress-stats">
+            <span id="progress-percent">0%</span>
+            <span id="elapsed-time">Elapsed: 0s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Steps -->
+      <div class="steps-section">
+        <div class="section-title">Pipeline Steps</div>
+        <div class="steps-grid" id="steps-grid"></div>
+      </div>
+
+      <!-- Log Viewer -->
+      <div class="log-section">
+        <div class="log-header">
+          <div class="log-header__title">
+            Live Log
+            <span class="log-header__badge" id="log-status">
+              <span id="log-status-icon">&#x25CF;</span>
+              <span id="log-status-text">Waiting</span>
+            </span>
+          </div>
+        </div>
+        <div class="log-content" id="log-content">
+          <div class="log-line">
+            <span class="log-line__time">--:--:--</span>
+            <span class="log-line__step">system</span>
+            <span class="log-line__message">Waiting for pipeline to start...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results (shown on completion) -->
+      <div class="results-card" id="results-card">
+        <div class="results-card__title">Pipeline Complete</div>
+        <div class="results-grid" id="results-grid">
+          <div class="result-item">
+            <div class="result-item__value" id="result-artists">0</div>
+            <div class="result-item__label">Artists</div>
+          </div>
+          <div class="result-item">
+            <div class="result-item__value" id="result-graphs">0</div>
+            <div class="result-item__label">Graphs</div>
+          </div>
+          <div class="result-item">
+            <div class="result-item__value" id="result-embeddings">0</div>
+            <div class="result-item__label">Embeddings</div>
+          </div>
+          <div class="result-item">
+            <div class="result-item__value" id="result-cached">0</div>
+            <div class="result-item__label">Cached</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error (shown on failure) -->
+      <div class="error-card" id="error-card">
+        <div class="error-card__title">Pipeline Failed</div>
+        <div class="error-card__message" id="error-message"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="progress-actions">
+        <a href="index.html" class="btn" id="btn-home">Back to Home</a>
+        <a href="explore-graph-artist.html" class="btn btn--primary" id="btn-explore" style="display: none;">
+          Explore Results
+        </a>
+        <button class="btn" id="btn-retry" style="display: none;">
+          Retry Pipeline
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as api from './js/lib/api.js';
+
+    // === Pipeline Steps Definition ===
+    const PIPELINE_STEPS = [
+      { id: 'load_tracks',                 label: 'Load Tracks' },
+      { id: 'validate',                    label: 'Validate' },
+      { id: 'aggregate',                   label: 'Aggregate Artists' },
+      { id: 'graph_balanced',              label: 'Graph \u00B7 Balanced' },
+      { id: 'graph_audio_focused',         label: 'Graph \u00B7 Sound Alike' },
+      { id: 'graph_genre_focused',         label: 'Graph \u00B7 Genre Match' },
+      { id: 'graph_era_focused',           label: 'Graph \u00B7 Same Era' },
+      { id: 'graph_audio_era',             label: 'Graph \u00B7 Vibe & Era' },
+      { id: 'embedding_audio_only',        label: 'Embed \u00B7 Audio' },
+      { id: 'embedding_combined_balanced', label: 'Embed \u00B7 Combined' },
+      { id: 'genre_graph',                 label: 'Genre Graph' },
+    ];
+
+    // === DOM Elements ===
+    const statusIcon = document.getElementById('status-icon');
+    const statusTitle = document.getElementById('status-title');
+    const statusSubtitle = document.getElementById('status-subtitle');
+    const progressFill = document.getElementById('progress-fill');
+    const progressPercent = document.getElementById('progress-percent');
+    const elapsedTime = document.getElementById('elapsed-time');
+    const stepsGrid = document.getElementById('steps-grid');
+    const logContent = document.getElementById('log-content');
+    const logStatusIcon = document.getElementById('log-status-icon');
+    const logStatusText = document.getElementById('log-status-text');
+    const resultsCard = document.getElementById('results-card');
+    const errorCard = document.getElementById('error-card');
+    const errorMessage = document.getElementById('error-message');
+    const btnExplore = document.getElementById('btn-explore');
+    const btnRetry = document.getElementById('btn-retry');
+
+    // Result values
+    const resultArtists = document.getElementById('result-artists');
+    const resultGraphs = document.getElementById('result-graphs');
+    const resultEmbeddings = document.getElementById('result-embeddings');
+    const resultCached = document.getElementById('result-cached');
+
+    // === State ===
+    let jobId = null;
+    let startTime = Date.now();
+    let pollInterval = null;
+    let renderedLogCount = 0;
+    let completedShown = false;
+    let failedShown = false;
+
+    // === Initialize Steps Grid ===
+    function buildStepsGrid() {
+      stepsGrid.innerHTML = '';
+      for (const step of PIPELINE_STEPS) {
+        const item = document.createElement('div');
+        item.className = 'step-item pending';
+        item.dataset.step = step.id;
+        item.innerHTML = `
+          <span class="step-item__icon">\u25CB</span>
+          <span>${step.label}</span>
+        `;
+        stepsGrid.appendChild(item);
+      }
+    }
+
+    // === Initialize ===
+    function init() {
+      buildStepsGrid();
+
+      // Get job ID from URL
+      const params = new URLSearchParams(window.location.search);
+      jobId = params.get('job_id');
+
+      if (!jobId) {
+        showError('No job ID provided');
+        return;
+      }
+
+      startPolling();
+    }
+
+    // === Polling ===
+    function startPolling() {
+      logStatusIcon.textContent = '\u25CF';
+      logStatusText.textContent = 'Live';
+      logStatusIcon.style.color = 'var(--success)';
+
+      pollInterval = setInterval(pollStatus, 1500);
+      pollStatus(); // Initial poll
+    }
+
+    function stopPolling() {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      logStatusIcon.textContent = '\u25A0';
+      logStatusText.textContent = 'Stopped';
+      logStatusIcon.style.color = 'var(--text-muted)';
+    }
+
+    async function pollStatus() {
+      try {
+        const status = await api.getRecomputeStatus(jobId);
+        updateUI(status);
+
+        if (status.status === 'completed' || status.status === 'failed') {
+          stopPolling();
+        }
+      } catch (e) {
+        appendLogLine('error', `Failed to fetch status: ${e.message}`, 'error');
+      }
+    }
+
+    // === UI Updates ===
+    function updateUI(status) {
+      updateProgress(status);
+      updateStatus(status);
+      updateSteps(status);
+      updateLog(status);
+      updateElapsedTime();
+
+      if (status.status === 'completed' && !completedShown) {
+        completedShown = true;
+        showCompleted(status);
+      } else if (status.status === 'failed' && !failedShown) {
+        failedShown = true;
+        showFailed(status);
+      }
+    }
+
+    function updateProgress(status) {
+      const percent = Math.round(status.progress * 100);
+      progressFill.style.width = `${percent}%`;
+      progressPercent.textContent = `${percent}%`;
+    }
+
+    function updateStatus(status) {
+      const statusConfig = {
+        pending: {
+          icon: '\u23F3',
+          iconClass: 'pending',
+          title: 'Preparing Pipeline',
+          subtitle: 'Getting ready to process your data...'
+        },
+        running: {
+          icon: '\u2699',
+          iconClass: 'running',
+          title: 'Processing',
+          subtitle: status.tracks_file ? `Processing ${status.tracks_file}...` : (status.current_step || 'Running pipeline steps...')
+        },
+        completed: {
+          icon: '\u2713',
+          iconClass: 'completed',
+          title: 'Complete',
+          subtitle: 'Your data has been processed successfully!'
+        },
+        failed: {
+          icon: '\u2717',
+          iconClass: 'failed',
+          title: 'Failed',
+          subtitle: 'An error occurred during processing.'
+        }
+      };
+
+      const config = statusConfig[status.status] || statusConfig.pending;
+      statusIcon.textContent = config.icon;
+      statusIcon.className = `status-icon ${config.iconClass}`;
+      statusTitle.textContent = config.title;
+      statusSubtitle.textContent = config.subtitle;
+    }
+
+    function updateSteps(status) {
+      const completedSteps = new Set(status.steps_completed || []);
+      const currentStep = status.current_step;
+
+      stepsGrid.querySelectorAll('.step-item').forEach(item => {
+        const stepId = item.dataset.step;
+        const icon = item.querySelector('.step-item__icon');
+
+        if (completedSteps.has(stepId)) {
+          item.className = 'step-item completed';
+          icon.textContent = '\u2713';
+        } else if (stepId === currentStep) {
+          item.className = 'step-item current';
+          icon.textContent = '\u25CF';
+        } else {
+          item.className = 'step-item pending';
+          icon.textContent = '\u25CB';
+        }
+      });
+    }
+
+    function updateLog(status) {
+      const entries = status.log || [];
+      // Only append new entries since last render
+      for (let i = renderedLogCount; i < entries.length; i++) {
+        const entry = entries[i];
+        const time = entry.time ? new Date(entry.time).toTimeString().split(' ')[0] : '--:--:--';
+        const type = entry.message && (entry.message.includes('error') || entry.message.includes('failed'))
+          ? 'error'
+          : entry.message && (entry.message === 'done' || entry.message === 'cached' || entry.message.includes('successfully'))
+            ? 'success'
+            : 'info';
+        appendLogLine(entry.step || 'system', entry.message || '', type, time);
+      }
+      renderedLogCount = entries.length;
+    }
+
+    function updateElapsedTime() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      elapsedTime.textContent = `Elapsed: ${mins}m ${secs}s`;
+    }
+
+    function showCompleted(status) {
+      if (status.result) {
+        resultArtists.textContent = status.result.artists_count?.toLocaleString() || '0';
+        resultGraphs.textContent = status.result.graphs_computed?.length || '0';
+        resultEmbeddings.textContent = status.result.embeddings_computed?.length || '0';
+        resultCached.textContent = status.result.cached_steps?.length || '0';
+      }
+
+      resultsCard.classList.add('visible');
+      btnExplore.style.display = 'inline-flex';
+    }
+
+    function showFailed(status) {
+      const errors = status.errors?.join('\n') || 'Unknown error';
+      errorMessage.textContent = errors;
+      errorCard.classList.add('visible');
+      btnRetry.style.display = 'inline-flex';
+    }
+
+    function showError(message) {
+      statusIcon.textContent = '\u2717';
+      statusIcon.className = 'status-icon failed';
+      statusTitle.textContent = 'Error';
+      statusSubtitle.textContent = message;
+      stopPolling();
+    }
+
+    // === Log ===
+    function appendLogLine(step, message, type = 'info', time = null) {
+      if (!time) {
+        time = new Date().toTimeString().split(' ')[0];
+      }
+
+      const line = document.createElement('div');
+      line.className = `log-line ${type}`;
+      line.innerHTML = `
+        <span class="log-line__time">${time}</span>
+        <span class="log-line__step">${step}</span>
+        <span class="log-line__message">${message}</span>
+      `;
+
+      logContent.appendChild(line);
+      logContent.scrollTop = logContent.scrollHeight;
+    }
+
+    // === Retry ===
+    btnRetry.addEventListener('click', async () => {
+      try {
+        const job = await api.triggerRecompute({ force: true });
+        window.location.href = `progress.html?job_id=${job.job_id}`;
+      } catch (e) {
+        alert(`Failed to retry: ${e.message}`);
+      }
+    });
+
+    // === Start ===
+    init();
+  </script>
+</body>
+</html>

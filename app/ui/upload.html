@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload | LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .upload-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .upload-content {
+      flex: 1;
+      padding: var(--space-6);
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .page-header {
+      margin-bottom: var(--space-8);
+    }
+
+    .page-header h1 {
+      font-size: var(--text-2xl);
+      margin-bottom: var(--space-2);
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-12);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--bg-secondary);
+      margin-bottom: var(--space-6);
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(34, 211, 238, 0.05));
+    }
+
+    .upload-zone.has-file {
+      border-color: var(--success);
+      border-style: solid;
+    }
+
+    .upload-zone.has-error {
+      border-color: var(--error);
+      border-style: solid;
+    }
+
+    .upload-zone__icon {
+      font-size: 4rem;
+      margin-bottom: var(--space-4);
+      opacity: 0.6;
+    }
+
+    .upload-zone__title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+    }
+
+    .upload-zone__subtitle {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+    }
+
+    .upload-zone input[type="file"] {
+      display: none;
+    }
+
+    /* File Info */
+    .file-info {
+      display: none;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+
+    .file-info.visible {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .file-info__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+
+    .file-info__name {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .file-info__name::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .file-info__size {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+    }
+
+    .file-info__clear {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: var(--space-2);
+      border-radius: var(--radius);
+    }
+
+    .file-info__clear:hover {
+      color: var(--error);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Validation Results */
+    .validation-results {
+      display: none;
+      margin-bottom: var(--space-6);
+    }
+
+    .validation-results.visible {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .validation-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .validation-card__header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .validation-card__status {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .validation-card__status.valid {
+      background: rgba(34, 197, 94, 0.2);
+    }
+
+    .validation-card__status.invalid {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    .validation-card__status.warning {
+      background: rgba(234, 179, 8, 0.2);
+    }
+
+    .validation-card__title {
+      font-weight: 600;
+    }
+
+    .validation-card__subtitle {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+    }
+
+    .validation-card__body {
+      padding: var(--space-5);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: var(--space-4);
+      background: var(--bg-tertiary);
+      border-radius: var(--radius);
+    }
+
+    .stat-item__value {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+
+    .stat-item__label {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      margin-top: var(--space-1);
+    }
+
+    /* Issues List */
+    .issues-list {
+      margin-top: var(--space-4);
+    }
+
+    .issue-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius);
+      margin-bottom: var(--space-2);
+    }
+
+    .issue-item.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .issue-item.warning {
+      background: rgba(234, 179, 8, 0.1);
+      border: 1px solid rgba(234, 179, 8, 0.3);
+    }
+
+    .issue-item__icon {
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+
+    .issue-item__content {
+      flex: 1;
+    }
+
+    .issue-item__code {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-bottom: var(--space-1);
+    }
+
+    /* Actions */
+    .upload-actions {
+      display: flex;
+      gap: var(--space-4);
+      justify-content: flex-end;
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--border);
+    }
+
+    .btn--large {
+      padding: var(--space-4) var(--space-8);
+      font-size: var(--text-base);
+    }
+
+    /* Loading State */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-overlay.visible {
+      display: flex;
+    }
+
+    .loading-content {
+      text-align: center;
+      padding: var(--space-8);
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--space-4);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="upload-layout">
+    <!-- Top Navigation -->
+    <nav class="nav">
+      <a href="index.html" class="nav__brand">LibraryExplorer</a>
+      <div class="nav__tabs">
+        <a href="wiki.html" class="nav__tab">Wiki</a>
+        <a href="explore-graph-artist.html" class="nav__tab">Explore</a>
+        <a href="browse.html" class="nav__tab">Browse</a>
+        <a href="selected.html" class="nav__tab">Selected</a>
+        <a href="settings.html" class="nav__tab nav__tab--active">Settings</a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="upload-content">
+      <div class="page-header">
+        <h1>Upload Track Data</h1>
+        <p>Upload a <code>normalized_tracks.json</code> or a Chosic liked-songs CSV export. Tick the toggle below to use the CSV format.</p>
+      </div>
+
+      <!-- Format toggle -->
+      <div style="margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-3);">
+        <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer;font-size:var(--text-sm);">
+          <input type="checkbox" id="choic-format" style="width:14px;height:14px;">
+          Chosic export (.csv)
+        </label>
+        <span id="choic-hint" style="display:none;font-size:var(--text-xs);color:var(--text-muted);">
+          Upload the .csv from chosic.com (columns: id, track_name, artist_name, tempo, energy, danceability, genres…)
+        </span>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone__icon">&#x1F4C1;</div>
+        <div class="upload-zone__title" id="upload-zone-title">Drop your file here</div>
+        <div class="upload-zone__subtitle" id="upload-zone-subtitle">or click to browse for normalized_tracks.json</div>
+        <input type="file" id="file-input" accept=".json">
+      </div>
+
+      <!-- File Info -->
+      <div class="file-info" id="file-info">
+        <div class="file-info__header">
+          <div>
+            <div class="file-info__name" id="file-name">filename.json</div>
+            <div class="file-info__size" id="file-size">0 KB</div>
+          </div>
+          <button class="file-info__clear" id="clear-file" title="Remove file">&#x2715;</button>
+        </div>
+      </div>
+
+      <!-- Validation Results -->
+      <div class="validation-results" id="validation-results">
+        <div class="validation-card">
+          <div class="validation-card__header">
+            <div class="validation-card__status" id="validation-status">&#x2713;</div>
+            <div>
+              <div class="validation-card__title" id="validation-title">Validation Result</div>
+              <div class="validation-card__subtitle" id="validation-subtitle">Checking your data...</div>
+            </div>
+          </div>
+          <div class="validation-card__body">
+            <div class="stats-grid" id="stats-grid">
+              <div class="stat-item">
+                <div class="stat-item__value" id="stat-tracks">0</div>
+                <div class="stat-item__label">Tracks</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__value" id="stat-artists">0</div>
+                <div class="stat-item__label">Artists</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__value" id="stat-genres">0</div>
+                <div class="stat-item__label">Est. Genres</div>
+              </div>
+            </div>
+            <div class="issues-list" id="issues-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="upload-actions">
+        <button class="btn" id="btn-cancel">Cancel</button>
+        <button class="btn btn--primary btn--large" id="btn-process" disabled>
+          Process & Build Pipeline
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div id="loading-text">Validating file...</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as api from './js/lib/api.js';
+
+    // === DOM Elements ===
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    const choicCheckbox = document.getElementById('choic-format');
+    const choicHint = document.getElementById('choic-hint');
+    const uploadZoneTitle = document.getElementById('upload-zone-title');
+    const uploadZoneSubtitle = document.getElementById('upload-zone-subtitle');
+
+    // === Format Toggle ===
+    choicCheckbox.addEventListener('change', () => {
+      const isCsv = choicCheckbox.checked;
+      fileInput.accept = isCsv ? '.csv' : '.json';
+      choicHint.style.display = isCsv ? 'inline' : 'none';
+      uploadZoneSubtitle.textContent = isCsv
+        ? 'or click to browse for Chosic .csv export'
+        : 'or click to browse for normalized_tracks.json';
+      resetState();
+    });
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
+    const clearFile = document.getElementById('clear-file');
+    const validationResults = document.getElementById('validation-results');
+    const validationStatus = document.getElementById('validation-status');
+    const validationTitle = document.getElementById('validation-title');
+    const validationSubtitle = document.getElementById('validation-subtitle');
+    const statsGrid = document.getElementById('stats-grid');
+    const statTracks = document.getElementById('stat-tracks');
+    const statArtists = document.getElementById('stat-artists');
+    const statGenres = document.getElementById('stat-genres');
+    const issuesList = document.getElementById('issues-list');
+    const btnCancel = document.getElementById('btn-cancel');
+    const btnProcess = document.getElementById('btn-process');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+
+    // === State ===
+    let currentFile = null;
+    let currentContent = null;
+    let validationData = null;
+
+    // === File Upload Handlers ===
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    clearFile.addEventListener('click', resetState);
+    btnCancel.addEventListener('click', () => window.location.href = 'index.html');
+    btnProcess.addEventListener('click', processFile);
+
+    // === File Handling ===
+    async function handleFile(file) {
+      const isCsv = choicCheckbox.checked;
+      const expectedExt = isCsv ? '.csv' : '.json';
+      if (!file.name.endsWith(expectedExt)) {
+        showError(`Please upload a ${expectedExt} file`);
+        return;
+      }
+
+      currentFile = file;
+      currentContent = null;
+
+      // Show file info
+      fileName.textContent = file.name;
+      fileSize.textContent = formatFileSize(file.size);
+      fileInfo.classList.add('visible');
+      uploadZone.classList.add('has-file');
+
+      if (isCsv) {
+        // For CSV: skip local parse/validation, just mark ready
+        hideLoading();
+        validationData = { valid: true };
+        validationResults.classList.add('visible');
+        validationStatus.className = 'validation-card__status valid';
+        validationStatus.textContent = '\u2713';
+        validationTitle.textContent = 'Ready to Upload';
+        validationSubtitle.textContent = 'CSV will be validated on the server.';
+        statsGrid.style.display = 'none';
+        issuesList.innerHTML = '';
+        btnProcess.disabled = false;
+        return;
+      }
+
+      // Read and validate JSON
+      showLoading('Reading file...');
+
+      try {
+        currentContent = await readFileAsText(file);
+        showLoading('Validating data...');
+
+        let data;
+        try {
+          data = JSON.parse(currentContent);
+        } catch (e) {
+          hideLoading();
+          showValidationError('Invalid JSON', 'The file contains invalid JSON syntax.');
+          return;
+        }
+
+        if (!Array.isArray(data)) {
+          hideLoading();
+          showValidationError('Invalid Format', 'Expected an array of tracks.');
+          return;
+        }
+
+        const result = await api.validateTracks(currentContent);
+        hideLoading();
+        showValidationResult(result, data);
+
+      } catch (e) {
+        hideLoading();
+        showError(`Error: ${e.message}`);
+      }
+    }
+
+    function showValidationResult(result, data) {
+      validationData = result;
+      validationResults.classList.add('visible');
+
+      if (result.valid) {
+        validationStatus.className = 'validation-card__status valid';
+        validationStatus.textContent = '\u2713';
+        validationTitle.textContent = 'Ready to Process';
+        validationSubtitle.textContent = 'Your data has passed all validation checks.';
+        btnProcess.disabled = false;
+        uploadZone.classList.remove('has-error');
+      } else {
+        validationStatus.className = 'validation-card__status invalid';
+        validationStatus.textContent = '\u2717';
+        validationTitle.textContent = 'Validation Failed';
+        validationSubtitle.textContent = 'Please fix the errors below before proceeding.';
+        btnProcess.disabled = true;
+        uploadZone.classList.add('has-error');
+      }
+
+      // Update stats
+      statTracks.textContent = result.track_count.toLocaleString();
+      statArtists.textContent = result.artist_count.toLocaleString();
+
+      // Estimate genres from data
+      const genres = new Set();
+      if (Array.isArray(data)) {
+        data.forEach(track => {
+          if (track.genres) {
+            track.genres.forEach(g => genres.add(g));
+          }
+        });
+      }
+      statGenres.textContent = genres.size.toLocaleString();
+
+      // Show issues
+      issuesList.innerHTML = '';
+
+      // Errors first
+      result.errors?.forEach(issue => {
+        issuesList.appendChild(createIssueItem(issue, 'error'));
+      });
+
+      // Then warnings
+      result.warnings?.forEach(issue => {
+        issuesList.appendChild(createIssueItem(issue, 'warning'));
+      });
+
+      // Update status icon based on warnings
+      if (result.valid && result.warnings?.length > 0) {
+        validationStatus.className = 'validation-card__status warning';
+        validationStatus.textContent = '!';
+        validationSubtitle.textContent = 'Ready with warnings - review before proceeding.';
+      }
+    }
+
+    function showValidationError(title, message) {
+      validationResults.classList.add('visible');
+      validationStatus.className = 'validation-card__status invalid';
+      validationStatus.textContent = '\u2717';
+      validationTitle.textContent = title;
+      validationSubtitle.textContent = message;
+      btnProcess.disabled = true;
+      uploadZone.classList.add('has-error');
+      statsGrid.style.display = 'none';
+      issuesList.innerHTML = '';
+    }
+
+    function createIssueItem(issue, type) {
+      const el = document.createElement('div');
+      el.className = `issue-item ${type}`;
+      el.innerHTML = `
+        <div class="issue-item__icon">${type === 'error' ? '\u2717' : '\u26A0'}</div>
+        <div class="issue-item__content">
+          <div class="issue-item__code">${issue.code}</div>
+          <div>${issue.message}</div>
+        </div>
+      `;
+      return el;
+    }
+
+    // === Process & Upload ===
+    async function processFile() {
+      if (!currentFile || !validationData?.valid) return;
+
+      showLoading('Uploading file...');
+
+      try {
+        const format = choicCheckbox.checked ? 'choic_csv' : 'json';
+        const uploadResult = await api.uploadTracks(currentFile, format);
+
+        if (uploadResult.status === 'error') {
+          hideLoading();
+          showError(`Upload failed: ${uploadResult.message}`);
+          return;
+        }
+
+        showLoading('Starting pipeline...');
+        const job = await api.triggerRecompute({ force: true });
+        hideLoading();
+        window.location.href = `progress.html?job_id=${job.job_id}`;
+
+      } catch (e) {
+        hideLoading();
+        // Show structured 422 column errors from CSV upload
+        if (e.status === 422 && e.body) {
+          const detail = e.body?.detail || e.body;
+          if (detail?.error === 'missing_columns') {
+            showValidationError(
+              'CSV columns missing',
+              `Missing: ${detail.missing.join(', ')} — Found: ${detail.found.slice(0, 8).join(', ')}…`
+            );
+          } else {
+            showError(`Upload error: ${JSON.stringify(detail)}`);
+          }
+        } else {
+          const serverMsg = e.body?.detail || e.message;
+          showError(`Upload error: ${typeof serverMsg === 'object' ? JSON.stringify(serverMsg) : serverMsg}`);
+        }
+      }
+    }
+
+    // === Utility Functions ===
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file);
+      });
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function showLoading(text) {
+      loadingText.textContent = text;
+      loadingOverlay.classList.add('visible');
+    }
+
+    function hideLoading() {
+      loadingOverlay.classList.remove('visible');
+    }
+
+    function showError(message) {
+      alert(message);
+    }
+
+    function resetState() {
+      currentFile = null;
+      currentContent = null;
+      validationData = null;
+      fileInput.value = '';
+      fileInfo.classList.remove('visible');
+      validationResults.classList.remove('visible');
+      uploadZone.classList.remove('has-file', 'has-error');
+      btnProcess.disabled = true;
+      statsGrid.style.display = 'grid';
+    }
+  </script>
+</body>
+</html>

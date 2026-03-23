@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Data & pipeline outputs (contain personal library data)
+app/uploads/
+app/cache/
+app/runs/
+
+# Environment & secrets
+.env
+.env.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

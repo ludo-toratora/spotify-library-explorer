@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings | LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .settings-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .settings-content {
+      flex: 1;
+      padding: var(--space-6);
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .page-header {
+      margin-bottom: var(--space-8);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .page-header h1 {
+      font-size: var(--text-2xl);
+      margin-bottom: var(--space-2);
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: var(--space-3);
+    }
+
+    /* Settings Grid */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+    }
+
+    @media (max-width: 800px) {
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Section Cards */
+    .settings-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+    }
+
+    .settings-section--full {
+      grid-column: 1 / -1;
+    }
+
+    .settings-section__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-5);
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-section__title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+    }
+
+    .settings-section__badge {
+      font-size: var(--text-xs);
+      padding: var(--space-1) var(--space-2);
+      border-radius: 9999px;
+      background: var(--accent-muted);
+      color: var(--accent);
+    }
+
+    .settings-section__description {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-4);
+    }
+
+    /* Preset Tabs */
+    .preset-tabs {
+      display: flex;
+      gap: var(--space-2);
+      margin-bottom: var(--space-5);
+      flex-wrap: wrap;
+    }
+
+    .preset-tab {
+      padding: var(--space-2) var(--space-4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-tertiary);
+      cursor: pointer;
+      font-size: var(--text-sm);
+      transition: all var(--transition);
+    }
+
+    .preset-tab:hover {
+      border-color: var(--accent);
+    }
+
+    .preset-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* Weight Sliders */
+    .weight-slider {
+      margin-bottom: var(--space-4);
+    }
+
+    .weight-slider:last-child {
+      margin-bottom: 0;
+    }
+
+    .weight-slider__header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: var(--space-2);
+    }
+
+    .weight-slider__label {
+      font-size: var(--text-sm);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .weight-slider__icon {
+      opacity: 0.6;
+    }
+
+    .weight-slider__value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--accent);
+      background: var(--accent-muted);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius);
+    }
+
+    .weight-slider input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .weight-slider input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+      transition: transform 0.15s ease;
+    }
+
+    .weight-slider input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+
+    .weight-slider input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(0.95);
+    }
+
+    /* Weight Total */
+    .weight-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-3);
+      background: var(--bg-tertiary);
+      border-radius: var(--radius);
+      margin-top: var(--space-4);
+      font-size: var(--text-sm);
+    }
+
+    .weight-total__label {
+      color: var(--text-muted);
+    }
+
+    .weight-total__value {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .weight-total__value.warning {
+      color: var(--warning);
+    }
+
+    .weight-total__value.valid {
+      color: var(--success);
+    }
+
+    /* Form Inputs */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: 500;
+      margin-bottom: var(--space-2);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: var(--space-3);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: var(--text-sm);
+      transition: border-color var(--transition);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-muted);
+    }
+
+    .form-hint {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: var(--space-1);
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+    }
+
+    .quick-action {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-5);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all var(--transition);
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .quick-action:hover {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(34, 211, 238, 0.05));
+    }
+
+    .quick-action__icon {
+      font-size: 2rem;
+      opacity: 0.8;
+    }
+
+    .quick-action__label {
+      font-weight: 500;
+      font-size: var(--text-sm);
+    }
+
+    .quick-action__hint {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* Status Toast */
+    .toast {
+      position: fixed;
+      bottom: var(--space-6);
+      right: var(--space-6);
+      padding: var(--space-4) var(--space-6);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      gap: var(--space-3);
+      z-index: 1000;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .toast.visible {
+      display: flex;
+    }
+
+    .toast.success {
+      border-color: rgba(34, 197, 94, 0.5);
+    }
+
+    .toast.error {
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    .toast__icon {
+      font-size: 1.5rem;
+    }
+
+    .toast.success .toast__icon {
+      color: var(--success);
+    }
+
+    .toast.error .toast__icon {
+      color: var(--error);
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-layout">
+    <!-- Top Navigation -->
+    <nav class="nav">
+      <a href="index.html" class="nav__brand">LibraryExplorer</a>
+      <div class="nav__tabs">
+        <a href="wiki.html" class="nav__tab">Wiki</a>
+        <a href="explore-graph-artist.html" class="nav__tab">Explore</a>
+        <a href="browse.html" class="nav__tab">Browse</a>
+        <a href="selected.html" class="nav__tab">Selected</a>
+        <a href="settings.html" class="nav__tab nav__tab--active">Settings</a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="settings-content">
+      <div class="page-header">
+        <div>
+          <h1>Settings</h1>
+          <p>Configure similarity weights, UMAP parameters, and pipeline settings.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn" id="btn-restore">Restore Defaults</button>
+          <button class="btn btn--primary" id="btn-save">Save Changes</button>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <!-- Quick Actions (first) -->
+        <div class="settings-section settings-section--full">
+          <div class="settings-section__header">
+            <h2 class="settings-section__title">Quick Actions</h2>
+          </div>
+
+          <div class="quick-actions">
+            <a href="upload.html" class="quick-action">
+              <span class="quick-action__icon">&#128194;</span>
+              <span class="quick-action__label">Upload Data</span>
+              <span class="quick-action__hint">Import tracks or Chosic CSV</span>
+            </a>
+            <button class="quick-action" id="btn-recompute">
+              <span class="quick-action__icon">&#9889;</span>
+              <span class="quick-action__label">Recompute</span>
+              <span class="quick-action__hint">Rebuild pipeline</span>
+            </button>
+            <a href="explore-graph-artist.html" class="quick-action">
+              <span class="quick-action__icon">&#128269;</span>
+              <span class="quick-action__label">Explore</span>
+              <span class="quick-action__hint">View graphs</span>
+            </a>
+            <a href="browse.html" class="quick-action">
+              <span class="quick-action__icon">&#128200;</span>
+              <span class="quick-action__label">Browse</span>
+              <span class="quick-action__hint">Library &amp; stats</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Similarity Presets -->
+        <div class="settings-section">
+          <div class="settings-section__header">
+            <h2 class="settings-section__title">Similarity Weights</h2>
+            <span class="settings-section__badge">5 Presets</span>
+          </div>
+          <p class="settings-section__description">
+            Adjust how artist similarity is calculated for each preset.
+          </p>
+
+          <!-- Preset Tabs -->
+          <div class="preset-tabs" id="preset-tabs">
+            <button class="preset-tab active" data-preset="balanced">Balanced</button>
+            <button class="preset-tab" data-preset="audio_focused">Audio</button>
+            <button class="preset-tab" data-preset="genre_focused">Genre</button>
+            <button class="preset-tab" data-preset="era_focused">Era</button>
+            <button class="preset-tab" data-preset="audio_era">Audio+Era</button>
+          </div>
+
+          <!-- Preset Rename -->
+          <div class="preset-rename" id="preset-rename">
+            <label class="form-label" style="font-size:var(--text-xs)">Display name</label>
+            <input type="text" class="form-input" id="preset-display-name" placeholder="e.g. Sound Alike">
+            <p class="form-hint" id="preset-description"></p>
+          </div>
+
+          <!-- Weight Sliders -->
+          <div id="weights-container">
+            <div class="weight-slider">
+              <div class="weight-slider__header">
+                <span class="weight-slider__label">
+                  <span class="weight-slider__icon">&#127925;</span>
+                  Audio Features
+                </span>
+                <span class="weight-slider__value" id="audio-value">0.40</span>
+              </div>
+              <input type="range" id="audio-weight" min="0" max="1" step="0.05" value="0.4">
+            </div>
+
+            <div class="weight-slider">
+              <div class="weight-slider__header">
+                <span class="weight-slider__label">
+                  <span class="weight-slider__icon">&#127932;</span>
+                  Genre Overlap
+                </span>
+                <span class="weight-slider__value" id="genre-value">0.40</span>
+              </div>
+              <input type="range" id="genre-weight" min="0" max="1" step="0.05" value="0.4">
+            </div>
+
+            <div class="weight-slider">
+              <div class="weight-slider__header">
+                <span class="weight-slider__label">
+                  <span class="weight-slider__icon">&#128197;</span>
+                  Era Similarity
+                </span>
+                <span class="weight-slider__value" id="era-value">0.20</span>
+              </div>
+              <input type="range" id="era-weight" min="0" max="1" step="0.05" value="0.2">
+            </div>
+
+            <div class="weight-total">
+              <span class="weight-total__label">Total Weight</span>
+              <span class="weight-total__value valid" id="weight-total">1.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- UMAP Parameters -->
+        <div class="settings-section">
+          <div class="settings-section__header">
+            <h2 class="settings-section__title">UMAP Parameters</h2>
+            <span class="settings-section__badge">Embedding</span>
+          </div>
+          <p class="settings-section__description">
+            Configure dimensionality reduction for the embedding view.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="umap-neighbors">n_neighbors</label>
+            <input type="number" class="form-input" id="umap-neighbors" value="15" min="2" max="100">
+            <p class="form-hint">Higher values capture more global structure (2-100)</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="umap-mindist">min_dist</label>
+            <input type="number" class="form-input" id="umap-mindist" value="0.1" min="0" max="1" step="0.05">
+            <p class="form-hint">Lower values create tighter clusters (0-1)</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="umap-metric">Metric</label>
+            <select class="form-input" id="umap-metric">
+              <option value="cosine" selected>Cosine</option>
+              <option value="euclidean">Euclidean</option>
+              <option value="manhattan">Manhattan</option>
+            </select>
+            <p class="form-hint">Distance metric for UMAP computation</p>
+          </div>
+        </div>
+
+        <!-- Graph Settings -->
+        <div class="settings-section">
+          <div class="settings-section__header">
+            <h2 class="settings-section__title">Graph Settings</h2>
+            <span class="settings-section__badge">Network</span>
+          </div>
+          <p class="settings-section__description">
+            Configure graph construction parameters.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="graph-minsim">Min Similarity</label>
+            <input type="number" class="form-input" id="graph-minsim" value="0.3" min="0" max="1" step="0.05">
+            <p class="form-hint">Minimum similarity to create an edge (0-1)</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="graph-kneighbors">k Neighbors</label>
+            <input type="number" class="form-input" id="graph-kneighbors" value="15" min="1" max="50">
+            <p class="form-hint">Number of nearest neighbors to connect</p>
+          </div>
+        </div>
+
+        <!-- Spotify Integration -->
+        <div class="settings-section settings-section--full">
+          <div class="settings-section__header">
+            <h2 class="settings-section__title">Spotify Integration</h2>
+            <span id="spotify-settings-badge" class="settings-section__badge" style="display:none">Connected</span>
+          </div>
+          <p class="settings-section__description">
+            Connect your Spotify account to create playlists directly from the Staging page.
+            Uses Authorization Code with PKCE — your Client Secret is never stored.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="spotify-client-id-setting">Client ID</label>
+            <div style="display:flex; gap:var(--space-2)">
+              <input type="text" id="spotify-client-id-setting" class="form-input"
+                     placeholder="Paste your Spotify Client ID..." style="flex:1">
+              <button class="btn" id="save-spotify-client-id">Save</button>
+            </div>
+            <p class="form-hint">
+              Get it from <strong>developer.spotify.com</strong> &rarr; Dashboard &rarr; your app.<br>
+              Required redirect URI to register in your Spotify app settings:
+              <code id="spotify-redirect-uri" style="margin-left:4px;padding:2px 6px;background:var(--bg-tertiary);border-radius:4px;font-size:11px;color:var(--accent)"></code>
+              <script>document.getElementById('spotify-redirect-uri').textContent = window.location.origin + '/ui/callback.html';</script>
+            </p>
+          </div>
+
+          <div id="spotify-settings-status" style="font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--space-2)"></div>
+          <button class="btn btn--sm" id="spotify-settings-disconnect"
+                  style="display:none;margin-top:var(--space-2)">Disconnect Spotify</button>
+        </div>
+
+        <!-- Config Status -->
+        <div class="settings-section settings-section--full">
+          <div class="settings-section__header">
+            <h2 class="settings-section__title">Configuration Status</h2>
+          </div>
+          <p id="config-status" style="color: var(--text-muted);">
+            Loading configuration...
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <span class="toast__icon">&#x2713;</span>
+    <span class="toast__message" id="toast-message">Settings saved</span>
+  </div>
+
+  <script type="module">
+    import * as api from './js/lib/api.js';
+
+    // === DOM Elements ===
+    const presetTabs = document.getElementById('preset-tabs');
+    const audioWeight = document.getElementById('audio-weight');
+    const genreWeight = document.getElementById('genre-weight');
+    const eraWeight = document.getElementById('era-weight');
+    const audioValue = document.getElementById('audio-value');
+    const genreValue = document.getElementById('genre-value');
+    const eraValue = document.getElementById('era-value');
+    const weightTotal = document.getElementById('weight-total');
+
+    const umapNeighbors = document.getElementById('umap-neighbors');
+    const umapMindist = document.getElementById('umap-mindist');
+    const umapMetric = document.getElementById('umap-metric');
+
+    const graphMinsim = document.getElementById('graph-minsim');
+    const graphKneighbors = document.getElementById('graph-kneighbors');
+
+    const btnSave = document.getElementById('btn-save');
+    const btnRestore = document.getElementById('btn-restore');
+    const btnRecompute = document.getElementById('btn-recompute');
+    const configStatus = document.getElementById('config-status');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+
+    // === State ===
+    let currentConfig = null;
+    let currentPreset = 'balanced';
+    let unsavedChanges = false;
+
+    // === Preset Tabs ===
+    presetTabs.addEventListener('click', (e) => {
+      if (e.target.classList.contains('preset-tab')) {
+        // Save current preset before switching
+        if (unsavedChanges) {
+          saveCurrentPresetToState();
+        }
+
+        // Switch preset
+        presetTabs.querySelectorAll('.preset-tab').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        currentPreset = e.target.dataset.preset;
+        loadPresetWeights(currentPreset);
+      }
+    });
+
+    function loadPresetWeights(presetName) {
+      if (!currentConfig?.similarity_presets) return;
+
+      const preset = currentConfig.similarity_presets[presetName];
+      if (preset) {
+        audioWeight.value = preset.audio_weight || 0;
+        genreWeight.value = preset.genre_weight || 0;
+        eraWeight.value = preset.era_weight || 0;
+        document.getElementById('preset-display-name').value = preset.display_name || '';
+        document.getElementById('preset-description').textContent = preset.description || '';
+        updateWeightDisplay();
+      }
+    }
+
+    function saveCurrentPresetToState() {
+      if (!currentConfig?.similarity_presets) return;
+
+      const existing = currentConfig.similarity_presets[currentPreset] || {};
+      currentConfig.similarity_presets[currentPreset] = {
+        ...existing,
+        display_name: document.getElementById('preset-display-name').value,
+        description: document.getElementById('preset-description').textContent,
+        audio_weight: parseFloat(audioWeight.value),
+        genre_weight: parseFloat(genreWeight.value),
+        era_weight: parseFloat(eraWeight.value),
+      };
+    }
+
+    // === Weight Sliders ===
+    function updateWeightDisplay() {
+      const audio = parseFloat(audioWeight.value);
+      const genre = parseFloat(genreWeight.value);
+      const era = parseFloat(eraWeight.value);
+
+      audioValue.textContent = audio.toFixed(2);
+      genreValue.textContent = genre.toFixed(2);
+      eraValue.textContent = era.toFixed(2);
+
+      const total = audio + genre + era;
+      weightTotal.textContent = total.toFixed(2);
+
+      if (Math.abs(total - 1.0) < 0.01) {
+        weightTotal.className = 'weight-total__value valid';
+      } else {
+        weightTotal.className = 'weight-total__value warning';
+      }
+
+      unsavedChanges = true;
+    }
+
+    audioWeight.addEventListener('input', updateWeightDisplay);
+    genreWeight.addEventListener('input', updateWeightDisplay);
+    eraWeight.addEventListener('input', updateWeightDisplay);
+
+    // Mark changes on any input
+    [umapNeighbors, umapMindist, umapMetric, graphMinsim, graphKneighbors].forEach(input => {
+      input.addEventListener('change', () => {
+        unsavedChanges = true;
+      });
+    });
+
+    document.getElementById('preset-display-name').addEventListener('input', () => {
+      unsavedChanges = true;
+    });
+
+    // === Load Config ===
+    async function loadConfig() {
+      try {
+        currentConfig = await api.getConfig();
+
+        // Update preset tab labels from display_name
+        presetTabs.querySelectorAll('.preset-tab').forEach(tab => {
+          const p = currentConfig.similarity_presets[tab.dataset.preset];
+          if (p?.display_name) tab.textContent = p.display_name;
+        });
+
+        // Load preset weights
+        loadPresetWeights(currentPreset);
+
+        // Load UMAP params
+        if (currentConfig.umap) {
+          umapNeighbors.value = currentConfig.umap.n_neighbors || 15;
+          umapMindist.value = currentConfig.umap.min_dist || 0.1;
+          if (currentConfig.umap.metric) {
+            umapMetric.value = currentConfig.umap.metric;
+          }
+        }
+
+        // Load graph params
+        if (currentConfig.graph) {
+          graphMinsim.value = currentConfig.graph.min_similarity || 0.3;
+          graphKneighbors.value = currentConfig.graph.k_neighbors || 15;
+        }
+
+        configStatus.textContent = 'Configuration loaded successfully.';
+        configStatus.style.color = 'var(--success)';
+        unsavedChanges = false;
+
+      } catch (e) {
+        console.error('Failed to load config:', e);
+        configStatus.textContent = `Failed to load config: ${e.message}`;
+        configStatus.style.color = 'var(--error)';
+      }
+    }
+
+    // === Save Config ===
+    btnSave.addEventListener('click', async () => {
+      btnSave.disabled = true;
+      btnSave.textContent = 'Saving...';
+
+      // Save current preset to state
+      saveCurrentPresetToState();
+
+      try {
+        const updates = {
+          similarity_presets: currentConfig.similarity_presets,
+          umap: {
+            n_neighbors: parseInt(umapNeighbors.value),
+            min_dist: parseFloat(umapMindist.value),
+            metric: umapMetric.value,
+          },
+          graph: {
+            min_similarity: parseFloat(graphMinsim.value),
+            k_neighbors: parseInt(graphKneighbors.value),
+          },
+        };
+
+        const result = await api.updateConfig(updates);
+        currentConfig = result.config || result;
+
+        showToast('success', 'Settings saved successfully');
+        unsavedChanges = false;
+
+        if (result.needs_recompute) {
+          configStatus.textContent = 'Settings saved. Changes require pipeline recomputation.';
+          configStatus.style.color = 'var(--warning)';
+        } else {
+          configStatus.textContent = 'Settings saved.';
+          configStatus.style.color = 'var(--success)';
+        }
+
+      } catch (e) {
+        console.error('Save failed:', e);
+        showToast('error', `Save failed: ${e.message}`);
+      } finally {
+        btnSave.disabled = false;
+        btnSave.textContent = 'Save Changes';
+      }
+    });
+
+    // === Restore Defaults ===
+    btnRestore.addEventListener('click', async () => {
+      if (!confirm('Restore all settings to defaults? This cannot be undone.')) {
+        return;
+      }
+
+      btnRestore.disabled = true;
+      btnRestore.textContent = 'Restoring...';
+
+      try {
+        currentConfig = await api.restoreConfig();
+        loadPresetWeights(currentPreset);
+
+        // Reload other fields
+        if (currentConfig.umap) {
+          umapNeighbors.value = currentConfig.umap.n_neighbors || 15;
+          umapMindist.value = currentConfig.umap.min_dist || 0.1;
+          umapMetric.value = currentConfig.umap.metric || 'cosine';
+        }
+        if (currentConfig.graph) {
+          graphMinsim.value = currentConfig.graph.min_similarity || 0.3;
+          graphKneighbors.value = currentConfig.graph.k_neighbors || 15;
+        }
+
+        showToast('success', 'Settings restored to defaults');
+        unsavedChanges = false;
+        configStatus.textContent = 'Settings restored to defaults. Recomputation may be needed.';
+        configStatus.style.color = 'var(--warning)';
+
+      } catch (e) {
+        console.error('Restore failed:', e);
+        showToast('error', `Restore failed: ${e.message}`);
+      } finally {
+        btnRestore.disabled = false;
+        btnRestore.textContent = 'Restore Defaults';
+      }
+    });
+
+    // === Recompute ===
+    btnRecompute.addEventListener('click', async () => {
+      if (unsavedChanges) {
+        if (!confirm('You have unsaved changes. Recompute anyway?')) {
+          return;
+        }
+      }
+
+      try {
+        const job = await api.triggerRecompute({ force: true });
+        window.location.href = `progress.html?job_id=${job.job_id}`;
+      } catch (e) {
+        showToast('error', `Recompute failed: ${e.message}`);
+      }
+    });
+
+    // === Toast ===
+    function showToast(type, message) {
+      toast.className = `toast visible ${type}`;
+      toastMessage.textContent = message;
+
+      setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 3000);
+    }
+
+    // === Warn on leave ===
+    window.addEventListener('beforeunload', (e) => {
+      if (unsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    // === Spotify Settings ===
+    (async () => {
+      const { getClientId, setClientId, clearAuth, getStoredUser } = await import('./js/lib/spotify-auth.js');
+
+      const clientIdInput = document.getElementById('spotify-client-id-setting');
+      const saveBtn = document.getElementById('save-spotify-client-id');
+      const statusEl = document.getElementById('spotify-settings-status');
+      const disconnectBtn = document.getElementById('spotify-settings-disconnect');
+      const badge = document.getElementById('spotify-settings-badge');
+
+      function refreshSpotifySettings() {
+        const clientId = getClientId();
+        const user = getStoredUser();
+        if (clientId) clientIdInput.value = clientId;
+
+        if (user) {
+          statusEl.textContent = `Connected as ${user.name}`;
+          statusEl.style.color = 'var(--accent)';
+          disconnectBtn.style.display = 'inline-flex';
+          badge.style.display = 'inline-block';
+        } else if (clientId) {
+          statusEl.textContent = 'Client ID saved — not yet connected (connect via Export Playlist on Staging).';
+          disconnectBtn.style.display = 'none';
+          badge.style.display = 'none';
+        } else {
+          statusEl.textContent = 'No Client ID configured.';
+          disconnectBtn.style.display = 'none';
+          badge.style.display = 'none';
+        }
+      }
+
+      saveBtn.addEventListener('click', () => {
+        const id = clientIdInput.value.trim();
+        if (!id) { showToast('error', 'Please enter a Client ID'); return; }
+        setClientId(id);
+        showToast('success', 'Spotify Client ID saved');
+        refreshSpotifySettings();
+      });
+
+      disconnectBtn.addEventListener('click', () => {
+        clearAuth();
+        showToast('success', 'Disconnected from Spotify');
+        refreshSpotifySettings();
+      });
+
+      refreshSpotifySettings();
+    })();
+
+    // === Initialize ===
+    loadConfig();
+  </script>
+</body>
+</html>

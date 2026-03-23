@@ -1,0 +1,60 @@
+server:
+  host: 127.0.0.1
+  port: 8000
+paths:
+  cache_dir: cache
+  upload_dir: uploads
+similarity_presets:
+  balanced:
+    display_name: "Balanced"
+    description: "Genre-weighted mix · audio 0.3 · genre 0.7 · era 0"
+    audio_weight: 0.3
+    genre_weight: 0.7
+    era_weight: 0
+  audio_focused:
+    display_name: "Sound Alike"
+    description: "Find artists that sound similar regardless of genre"
+    audio_weight: 0.7
+    genre_weight: 0.2
+    era_weight: 0.1
+  genre_focused:
+    display_name: "Genre Match"
+    description: "Same genre family, similar era, some audio"
+    audio_weight: 0.2
+    genre_weight: 0.6
+    era_weight: 0.2
+  era_focused:
+    display_name: "Same Era"
+    description: "Artists from the same decade, light genre/audio"
+    audio_weight: 0.2
+    genre_weight: 0.2
+    era_weight: 0.6
+  audio_era:
+    display_name: "Vibe & Era"
+    description: "Sound + decade match, genre ignored"
+    audio_weight: 0.5
+    genre_weight: 0
+    era_weight: 0.5
+embedding_presets:
+- name: audio_only
+  features:
+  - energy
+  - danceability
+  - valence
+  - acousticness
+  - instrumentalness
+  - tempo
+- name: combined_balanced
+  features:
+  - audio
+  - genre
+  - era
+umap:
+  n_neighbors: 15
+  min_dist: 0.1
+  metric: cosine
+graph:
+  min_similarity: 0.3
+  k_neighbors: 15
+default_preset: balanced
+default_embedding: combined_balanced

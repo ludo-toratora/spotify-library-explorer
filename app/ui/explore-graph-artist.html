@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artist Graph | LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/panels.css">
+</head>
+<body>
+  <div class="explore-layout">
+    <!-- Top Navigation -->
+    <nav class="nav">
+      <a href="index.html" class="nav__brand">LibraryExplorer</a>
+      <div class="nav__tabs">
+        <a href="wiki.html" class="nav__tab">Wiki</a>
+        <a href="explore-graph-artist.html" class="nav__tab nav__tab--active">Explore</a>
+        <a href="browse.html" class="nav__tab">Browse</a>
+        <a href="selected.html" class="nav__tab">Selected</a>
+        <a href="settings.html" class="nav__tab">Settings</a>
+      </div>
+    </nav>
+
+    <!-- Sub Navigation -->
+    <div class="subnav">
+      <span class="subnav__label">View:</span>
+      <a href="explore-graph-artist.html" class="pill pill--active">Artist Graph</a>
+      <a href="explore-graph-genre.html" class="pill">Genre Graph</a>
+      <a href="explore-embeddings.html" class="pill">Embedding Map</a>
+      <span class="subnav__sep">|</span>
+      <span class="subnav__label" id="loaded-indicator" style="color: var(--accent); font-size: var(--text-xs);">Loading…</span>
+    </div>
+
+    <!-- Main Three-Panel Area -->
+    <div class="main-area">
+      <!-- Left Panel: Controls -->
+      <aside class="panel panel--left panel--collapsed" id="panel-left">
+        <div class="panel__content">
+          <!-- Search and Preset -->
+          <div class="control-section control-section--sticky">
+            <input type="text" class="input input--search" id="search-input" placeholder="Search artists...">
+            <span class="control-label">Graph preset</span>
+            <select class="select select--compact" id="preset-select"></select>
+          </div>
+
+          <!-- Color Mode Pills -->
+          <div class="control-section">
+            <span class="control-label">Color by</span>
+            <div class="color-pills" id="color-pills">
+              <button class="color-pill color-pill--active" data-color="parent_genre" title="Parent genre family">Genre</button>
+              <button class="color-pill" data-color="decade" title="Primary decade">Decade</button>
+              <span class="color-pills__sep">|</span>
+              <button class="color-pill" data-color="bridger" title="Bridge artists connecting communities">Bridge</button>
+              <button class="color-pill" data-color="betweenness" title="Betweenness centrality">Centrality</button>
+              <button class="color-pill" data-color="degree" title="Number of connections">Connections</button>
+              <button class="color-pill" data-color="track_count" title="Track count">Tracks</button>
+              <span class="color-pills__sep">|</span>
+              <button class="color-pill" data-color="energy" title="Average energy level">Energy</button>
+              <button class="color-pill" data-color="danceability" title="Average danceability">Dance</button>
+              <button class="color-pill" data-color="valence" title="Average valence (positivity)">Valence</button>
+              <button class="color-pill" data-color="acousticness" title="Average acousticness">Acoustic</button>
+              <button class="color-pill" data-color="instrumentalness" title="Average instrumentalness">Instrumental</button>
+              <button class="color-pill" data-color="tempo" title="Average tempo">Tempo</button>
+            </div>
+          </div>
+
+          <!-- Actions Section -->
+          <div class="accordion" data-accordion="actions">
+            <button class="accordion__header">
+              <span>Actions</span>
+              <span class="accordion__icon"></span>
+            </button>
+            <div class="accordion__content">
+              <div class="button-row">
+                <button class="btn btn--sm" id="reset-view" title="Reset zoom and pan to fit all nodes">Reset View</button>
+                <button class="btn btn--sm" id="add-visible" title="Add all currently visible nodes to staging">Add Visible</button>
+              </div>
+              <div class="button-row" style="margin-top: var(--space-2);">
+                <button class="btn btn--sm" id="add-connected" title="Add nodes connected to your selection to staging">Add Connected</button>
+              </div>
+              <div class="control-slider control-slider--labeled" style="margin-top: var(--space-2);">
+                <span class="control-slider__label">Depth</span>
+                <input type="range" id="focus-depth" min="1" max="4" value="1">
+                <span class="control-slider__value" id="focus-depth-value">1</span>
+              </div>
+              <div class="button-row" style="margin-top: var(--space-2);">
+                <button class="btn btn--sm" id="view-connected" title="Show only nodes connected to selection">View Connected</button>
+                <button class="btn btn--sm" id="select-connected" title="Add connected nodes to selection">Select Connected</button>
+              </div>
+              <div class="button-row" style="margin-top: var(--space-2);">
+                <button class="btn btn--sm" id="clear-focus" title="Clear focus highlight and restore full graph">Clear Focus</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Browse Communities Section -->
+          <div class="accordion accordion--open" data-accordion="browse">
+            <button class="accordion__header">
+              <span>Browse Communities</span>
+              <span class="accordion__icon"></span>
+            </button>
+            <div class="accordion__content">
+              <select class="select select--compact" id="filter-community-select" style="margin-bottom: var(--space-1);">
+                <optgroup label="Artist Graph">
+                  <option value="artist_balanced">Artist (Balanced)</option>
+                  <option value="artist_audio_focused">Artist (Audio)</option>
+                  <option value="artist_genre_focused">Artist (Genre)</option>
+                  <option value="artist_era_focused">Artist (Era)</option>
+                  <option value="artist_audio_era">Artist (Audio+Era)</option>
+                </optgroup>
+                <optgroup label="Genre Graph">
+                  <option value="genre_comm">Genre Community</option>
+                </optgroup>
+                <optgroup label="UMAP Embeddings">
+                  <option value="emb_combined_balanced">Emb: Combined</option>
+                  <option value="emb_audio_default">Emb: Audio</option>
+                  <option value="emb_audio_local">Emb: Audio Local</option>
+                  <option value="emb_audio_global">Emb: Audio Global</option>
+                  <option value="emb_audio_spread">Emb: Audio Spread</option>
+                  <option value="emb_audio_euclidean">Emb: Audio Euclid</option>
+                  <option value="emb_genre">Emb: Genre Only</option>
+                  <option value="emb_era">Emb: Era</option>
+                  <option value="emb_combined_audio">Emb: Audio Heavy</option>
+                  <option value="emb_combined_genre">Emb: Genre Heavy</option>
+                  <option value="emb_combined_era">Emb: Era Heavy</option>
+                  <option value="emb_combined_equal">Emb: Equal</option>
+                </optgroup>
+                <optgroup label="Taxonomy">
+                  <option value="parent_genre">Parent Genre</option>
+                  <option value="primary_decade">Decade</option>
+                </optgroup>
+              </select>
+              <div class="browse-controls-row">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="match-colors" checked>
+                  Match colors
+                </label>
+                <button class="btn btn--xs" id="show-all-clusters">All</button>
+                <button class="btn btn--xs" id="hide-all-clusters">None</button>
+              </div>
+              <div class="cluster-list" id="cluster-list"></div>
+            </div>
+          </div>
+
+          <!-- Controls Section -->
+          <div class="accordion" data-accordion="controls">
+            <button class="accordion__header">
+              <span>Controls</span>
+              <span class="accordion__icon"></span>
+            </button>
+            <div class="accordion__content">
+              <div class="control-row">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="show-labels">
+                  Labels
+                </label>
+                <label class="control-checkbox">
+                  <input type="checkbox" id="show-edges" checked>
+                  Edges
+                </label>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Size</span>
+                  <input type="range" id="node-size" min="2" max="20" value="4">
+                  <span class="control-slider__value" id="node-size-value">4</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Labels</span>
+                  <input type="range" id="label-threshold" min="0" max="50" value="5">
+                  <span class="control-slider__value" id="label-threshold-value">5</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Edges</span>
+                  <input type="range" id="edge-opacity" min="0" max="100" value="30">
+                  <span class="control-slider__value" id="edge-opacity-value">30%</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Min Tracks</span>
+                  <input type="range" id="min-tracks" min="1" max="50" value="1">
+                  <span class="control-slider__value" id="min-tracks-value">1</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="control-slider control-slider--labeled">
+                  <span class="control-slider__label">Similarity</span>
+                  <input type="range" id="min-similarity" min="0" max="100" value="30">
+                  <span class="control-slider__value" id="min-similarity-value">30%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Physics Section -->
+          <div class="accordion" data-accordion="physics" id="physics-section">
+            <button class="accordion__header">
+              <span>Physics</span>
+              <span class="accordion__icon">&#9654;</span>
+            </button>
+            <div class="accordion__content">
+              <div class="control-group">
+                <label class="control-checkbox">
+                  <input type="checkbox" id="physics-enabled">
+                  Enable physics
+                </label>
+              </div>
+              <div class="control-group">
+                <label class="control-label">Link Strength</label>
+                <div class="control-slider">
+                  <input type="range" id="link-strength" min="0" max="100" value="50">
+                  <span class="control-slider__value" id="link-strength-value">50</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <label class="control-label">Repulsion</label>
+                <div class="control-slider">
+                  <input type="range" id="repulsion" min="0" max="100" value="50">
+                  <span class="control-slider__value" id="repulsion-value">50</span>
+                </div>
+              </div>
+              <div class="control-group">
+                <button class="btn btn--sm" id="reheat-physics">Reheat</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-spacer" id="controls-spacer"></div>
+        </div>
+      </aside>
+
+      <!-- Panel toggle buttons -->
+      <button class="canvas-toggle canvas-toggle--left" id="toggle-left-open" title="Toggle controls">▶</button>
+      <button class="canvas-toggle canvas-toggle--right" id="toggle-right-open" title="Toggle info">◀</button>
+
+      <!-- Canvas Area -->
+      <main class="canvas-area">
+        <div class="canvas-container" id="canvas-container">
+          <canvas id="main-canvas"></canvas>
+          <div class="canvas-placeholder" id="canvas-placeholder">
+            Loading graph...
+          </div>
+        </div>
+        <div class="tooltip" id="tooltip" style="display: none;">
+          <div class="tooltip__title" id="tooltip-title"></div>
+          <div id="tooltip-content"></div>
+        </div>
+      </main>
+
+      <!-- Right Panel: Info -->
+      <aside class="panel panel--right panel--collapsed" id="panel-right">
+        <div class="panel__content">
+          <div class="info-section" id="selection-info-section">
+            <div class="info-title">Current Selection</div>
+            <div id="selection-summary"><div class="text-muted text-sm">Nothing selected</div></div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-title">View Overview</div>
+            <div class="stats-grid" id="stats-grid">
+              <div class="stat-item">
+                <div class="stat-item__label">Artists</div>
+                <div class="stat-item__value stat-item__value--accent" id="stat-artists">--</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__label">Edges</div>
+                <div class="stat-item__value stat-item__value--accent" id="stat-connections">--</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__label">Clusters</div>
+                <div class="stat-item__value stat-item__value--accent" id="stat-communities">--</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-item__label">Visible</div>
+                <div class="stat-item__value" id="stat-visible">--</div>
+              </div>
+            </div>
+            <div class="community-sizes" id="community-sizes" style="display:none">
+              <span class="community-sizes__label">Community sizes</span>
+              <div class="community-sizes__chart" id="community-sizes-chart"></div>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Colors</span>
+              <div class="sort-pills" id="legend-sort" style="display:flex;gap:4px;">
+                <button class="sort-pill sort-pill--active" data-sort="count" title="Sort by count">Count</button>
+                <button class="sort-pill" data-sort="alpha" title="Sort alphabetically">A–Z</button>
+              </div>
+            </div>
+            <div class="color-legend" id="color-legend"></div>
+          </div>
+
+          <div class="info-section" id="bridge-section">
+            <div class="info-title">Bridge Artists</div>
+            <div class="bridge-list" id="bridge-list"></div>
+          </div>
+
+          <div class="panel-spacer" id="info-spacer"></div>
+
+          <div class="info-section info-section--hints">
+            <div class="info-title">Controls</div>
+            <ul class="hints-list">
+              <li><kbd>Scroll</kbd> Zoom</li>
+              <li><kbd>Drag</kbd> Pan</li>
+              <li><kbd>Click</kbd> Select</li>
+              <li><kbd>Shift</kbd> Box select</li>
+              <li><kbd>S</kbd> Search</li>
+              <li><kbd>F</kbd> Filters</li>
+              <li><kbd>E</kbd> Staging</li>
+              <li><kbd>Esc</kbd> Clear</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom Strip -->
+    <div class="bottom-strip" id="bottom-strip" style="position: static !important;">
+      <div class="bottom-strip__info">
+        <div class="bottom-strip__stat"><span id="staging-selections">0</span> sel</div>
+        <div class="bottom-strip__stat"><strong id="staging-artists">0</strong> artists</div>
+        <div class="bottom-strip__stat"><strong id="staging-tracks">0</strong> tracks</div>
+      </div>
+      <div class="bottom-strip__selection" id="selection-bar" style="display: none;">
+        <span class="bottom-strip__selection-info">
+          <strong id="selection-count">0</strong> selected
+        </span>
+        <button class="btn btn--sm" id="clear-selection">Clear</button>
+        <button class="btn btn--sm btn--primary" id="add-to-staging">+ Staging</button>
+      </div>
+      <a href="selected.html" class="btn btn--sm">View Selected →</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { view } from './js/stores/view.js';
+    import { staging } from './js/stores/staging.js';
+    import * as api from './js/lib/api.js';
+    import { GraphView } from './js/components/GraphView.js';
+    import { ClusterList } from './js/components/ClusterList.js';
+    import { generateLegend, CATEGORY_COLORS } from './js/lib/colors.js';
+
+    // === DOM Elements ===
+    const presetSelect = document.getElementById('preset-select');
+
+    // Populate preset select from canonical label map
+    Object.entries(api.GRAPH_PRESET_LABELS).forEach(([value, label]) => {
+      const opt = document.createElement('option');
+      opt.value = value; opt.textContent = label;
+      presetSelect.appendChild(opt);
+    });
+
+    const colorPills = document.querySelectorAll('.color-pill');
+    const filterCommunitySelect = document.getElementById('filter-community-select');
+    const searchInput = document.getElementById('search-input');
+    let currentColorMode = 'community';
+    let filterKey = 'artist_balanced'; // Current filter key (decoupled from colorMode)
+
+    // === Community Maps Cache (artist-level: artistId → value) ===
+    const COMM_MAPS = {}; // key → { artistId: value }
+
+    async function fetchCommMap(key) {
+      if (key in COMM_MAPS) return COMM_MAPS[key];
+      try {
+        if (key.startsWith('artist_')) {
+          const preset = key.slice(7);
+          const data = await api.getGraph(preset);
+          const m = {};
+          for (const n of (data.nodes || [])) m[n.id] = n.community;
+          COMM_MAPS[key] = m;
+        } else if (key === 'genre_comm') {
+          const data = await api.getGenreGraph();
+          // Store genre→community for artist-level resolution
+          const raw = {};
+          for (const n of (data.nodes || [])) raw[n.id] = n.community;
+          COMM_MAPS['__genre_raw__'] = raw;
+          COMM_MAPS[key] = null; // resolved at apply time using artist.genres
+        } else if (key.startsWith('emb_')) {
+          const preset = key.slice(4);
+          const data = await api.getEmbedding(preset);
+          const m = {};
+          for (const [id, coords] of Object.entries(data.positions || {})) {
+            m[id] = coords.cluster ?? 0;
+          }
+          COMM_MAPS[key] = m;
+        }
+      } catch (e) {
+        console.warn('Failed to load comm map:', key, e);
+        // Don't cache failures — allow retry after recompute
+      }
+      return COMM_MAPS[key];
+    }
+
+    async function applyFilterKey(key) {
+      if (!graphView || !currentData?.nodes) return;
+      const nodes = currentData.nodes;
+      filterCommunitySelect.disabled = true;
+      try {
+        if (key === 'parent_genre') {
+          for (const n of nodes) n._filter_val = n.parent_genre ?? null;
+        } else if (key === 'primary_decade') {
+          for (const n of nodes) n._filter_val = n.primary_decade ?? null;
+        } else if (key === 'genre_comm') {
+          await fetchCommMap(key);
+          const genreRaw = COMM_MAPS['__genre_raw__'] || {};
+          for (const n of nodes) {
+            const comms = {};
+            for (const g of (n.genres || [])) {
+              const c = genreRaw[g];
+              if (c != null) comms[c] = (comms[c] || 0) + 1;
+            }
+            const top = Object.entries(comms).sort((a, b) => b[1] - a[1])[0];
+            n._filter_val = top ? top[0] : null;
+          }
+        } else if (key.startsWith('artist_') && key === 'artist_' + presetSelect.value) {
+          // Current loaded preset — use node.community directly (no fetch)
+          for (const n of nodes) n._filter_val = n.community ?? null;
+        } else {
+          const map = await fetchCommMap(key);
+          for (const n of nodes) n._filter_val = map?.[n.id] ?? null;
+        }
+        graphView.setVisibilityField('_filter_val');
+        clusterList.setData(nodes, '_filter_val');
+        updateStats(graphView.getStats());
+      } finally {
+        filterCommunitySelect.disabled = false;
+      }
+    }
+
+    // Panels
+    const panelLeft = document.getElementById('panel-left');
+    const panelRight = document.getElementById('panel-right');
+    const toggleLeft = document.getElementById('toggle-left-open');
+    const toggleRight = document.getElementById('toggle-right-open');
+
+    // Canvas
+    const canvasContainer = document.getElementById('canvas-container');
+    const canvas = document.getElementById('main-canvas');
+    const canvasPlaceholder = document.getElementById('canvas-placeholder');
+    const tooltip = document.getElementById('tooltip');
+    const tooltipTitle = document.getElementById('tooltip-title');
+    const tooltipContent = document.getElementById('tooltip-content');
+
+    // Info panel elements
+    const colorLegend = document.getElementById('color-legend');
+    const bridgeList = document.getElementById('bridge-list');
+    const statArtists = document.getElementById('stat-artists');
+    const statConnections = document.getElementById('stat-connections');
+    const statCommunities = document.getElementById('stat-communities');
+    const statVisible = document.getElementById('stat-visible');
+
+    // Selection bar
+    const selectionBar = document.getElementById('selection-bar');
+    const selectionCount = document.getElementById('selection-count');
+    const clearSelectionBtn = document.getElementById('clear-selection');
+    const addToStagingBtn = document.getElementById('add-to-staging');
+    const addVisibleBtn = document.getElementById('add-visible');
+    const addConnectedBtn = document.getElementById('add-connected');
+    const resetViewBtn = document.getElementById('reset-view');
+
+    // Staging stats
+    const stagingSelections = document.getElementById('staging-selections');
+    const stagingArtists = document.getElementById('staging-artists');
+    const stagingTracks = document.getElementById('staging-tracks');
+
+    // Sliders
+    const sliders = {
+      nodeSize:       { input: document.getElementById('node-size'),       value: document.getElementById('node-size-value') },
+      labelThreshold: { input: document.getElementById('label-threshold'), value: document.getElementById('label-threshold-value') },
+      edgeOpacity:    { input: document.getElementById('edge-opacity'),    value: document.getElementById('edge-opacity-value') },
+      minSimilarity:  { input: document.getElementById('min-similarity'),  value: document.getElementById('min-similarity-value') },
+      minTracks:      { input: document.getElementById('min-tracks'),      value: document.getElementById('min-tracks-value') },
+      linkStrength:   { input: document.getElementById('link-strength'),   value: document.getElementById('link-strength-value') },
+      repulsion:      { input: document.getElementById('repulsion'),       value: document.getElementById('repulsion-value') },
+    };
+    const showLabelsCheckbox = document.getElementById('show-labels');
+    const showEdgesCheckbox = document.getElementById('show-edges');
+
+    // === View Component ===
+    let graphView = null;
+    let currentData = null;
+
+    // === Cluster List ===
+    const clusterListContainer = document.getElementById('cluster-list');
+    const clusterList = new ClusterList(clusterListContainer);
+
+    clusterList.onVisibilityChange = (visibleValues) => {
+      if (!graphView) return;
+      graphView.visibleCommunities = visibleValues;
+      graphView.updateVisibleNodes();
+      graphView.render();
+      if (graphView.getStats) updateStats(graphView.getStats());
+    };
+
+    document.getElementById('show-all-clusters')?.addEventListener('click', () => clusterList.setAllVisible(true));
+    document.getElementById('hide-all-clusters')?.addEventListener('click', () => clusterList.setAllVisible(false));
+
+    // === Panel State ===
+    const PANEL_STATE_KEY = 'explore_artist_panel_state';
+
+    function loadPanelState() {
+      const saved = localStorage.getItem(PANEL_STATE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        if (state.left) panelLeft.classList.remove('panel--collapsed');
+        // Right panel always starts collapsed for more canvas space
+      }
+      updateToggleVisibility();
+    }
+
+    function savePanelState() {
+      const state = {
+        left:  !panelLeft.classList.contains('panel--collapsed'),
+        right: !panelRight.classList.contains('panel--collapsed'),
+      };
+      localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(state));
+    }
+
+    function updateToggleVisibility() {
+      const leftCollapsed  = panelLeft.classList.contains('panel--collapsed');
+      const rightCollapsed = panelRight.classList.contains('panel--collapsed');
+      toggleLeft.style.left   = leftCollapsed  ? '0px' : `${panelLeft.offsetWidth}px`;
+      toggleRight.style.right = rightCollapsed ? '0px' : `${panelRight.offsetWidth}px`;
+      toggleLeft.textContent  = leftCollapsed  ? '▶' : '◀';
+      toggleRight.textContent = rightCollapsed ? '◀' : '▶';
+    }
+
+    function togglePanel(panel, forceOpen = null) {
+      if (forceOpen === true)       panel.classList.remove('panel--collapsed');
+      else if (forceOpen === false) panel.classList.add('panel--collapsed');
+      else                          panel.classList.toggle('panel--collapsed');
+      updateToggleVisibility();
+      savePanelState();
+    }
+
+    toggleLeft.addEventListener('click', () => {
+      togglePanel(panelLeft, !(!panelLeft.classList.contains('panel--collapsed')));
+    });
+    toggleRight.addEventListener('click', () => {
+      togglePanel(panelRight, !(!panelRight.classList.contains('panel--collapsed')));
+    });
+
+    // === Spacer Calculation ===
+    const controlsSpacer = document.getElementById('controls-spacer');
+    const infoSpacer = document.getElementById('info-spacer');
+    const hintsSection = document.querySelector('.info-section--hints');
+
+    function updateSpacers() {
+      const lastAccordion = document.querySelector('.panel--left .accordion:last-of-type');
+      if (lastAccordion && controlsSpacer) {
+        const panelContent = lastAccordion.closest('.panel__content');
+        if (panelContent) {
+          const spaceNeeded = Math.max(0, panelContent.clientHeight - lastAccordion.offsetHeight - 60);
+          controlsSpacer.style.height = `${spaceNeeded}px`;
+        }
+      }
+      if (hintsSection && infoSpacer) {
+        const panelContent = hintsSection.closest('.panel__content');
+        if (panelContent) {
+          const spaceNeeded = Math.max(0, panelContent.clientHeight - hintsSection.offsetHeight - 60);
+          infoSpacer.style.height = `${spaceNeeded}px`;
+        }
+      }
+    }
+
+    window.addEventListener('resize', updateSpacers);
+    setTimeout(updateSpacers, 100);
+
+    // === Accordion Toggle ===
+    document.querySelectorAll('.accordion__header').forEach(header => {
+      header.addEventListener('click', () => {
+        const accordion = header.closest('.accordion');
+        const wasOpen = accordion.classList.contains('accordion--open');
+        const panel = accordion.closest('.panel__content');
+        if (panel) panel.querySelectorAll('.accordion--open').forEach(a => a.classList.remove('accordion--open'));
+        if (!wasOpen) accordion.classList.add('accordion--open');
+        setTimeout(updateSpacers, 50);
+      });
+    });
+
+    // === Data Loading ===
+    async function loadGraphData(preset) {
+      canvasPlaceholder.style.display = 'flex';
+      canvasPlaceholder.textContent = 'Loading graph...';
+
+      try {
+        const data = await api.getGraph(preset);
+        currentData = data;
+
+        if (!graphView) {
+          graphView = new GraphView(canvas, {
+            nodeSize: parseInt(sliders.nodeSize.input.value),
+            edgeOpacity: parseInt(sliders.edgeOpacity.input.value) / 100,
+            minSimilarity: parseInt(sliders.minSimilarity.input.value) / 100,
+            minTracks: parseInt(sliders.minTracks.input.value),
+            showLabels: showLabelsCheckbox.checked,
+          });
+          canvas.addEventListener('nodehover', (e) => {
+            const { node, screenX, screenY } = e.detail;
+            if (node) showTooltip(node, screenX, screenY);
+            else hideTooltip();
+          });
+        }
+        graphView.setData(data);
+        graphView.preloadPhysics(30);  // settle initial layout before first render
+        graphView.fitToView();
+        graphView.render();
+        graphView.isActive = true;
+        canvasPlaceholder.style.display = 'none';
+        document.getElementById('loaded-indicator').textContent =
+          `Artist Graph · ${presetSelect.options[presetSelect.selectedIndex]?.text || preset}`;
+
+        // Reset to default filter (current preset's artist communities, already loaded)
+        filterKey = 'artist_' + preset;
+        filterCommunitySelect.value = filterKey;
+        for (const n of data.nodes) n._filter_val = n.community ?? null;
+        graphView.setVisibilityField('_filter_val');
+        clusterList.setData(data.nodes, '_filter_val');
+        updateStats(graphView.getStats());
+        updateBridgeList(data.bridges);
+        // Apply initial color: community if Match Colors ON, else current pill
+        if (matchColorsCheckbox?.checked) {
+          applyMatchedCommunityColor(filterKey);
+        } else {
+          updateColorLegend(currentColorMode, data);
+        }
+
+      } catch (error) {
+        console.error('Failed to load graph:', error);
+        canvasPlaceholder.textContent = 'Failed to load graph. Check console.';
+      }
+    }
+
+    // === Tooltip ===
+    function showTooltip(item, x, y) {
+      tooltipTitle.textContent = item.name || item.id;
+      tooltipContent.innerHTML = `
+        <div class="tooltip__row"><span>Tracks:</span><span>${item.track_count || item.trackCount || 0}</span></div>
+        <div class="tooltip__row"><span>Community:</span><span>${item.community ?? '--'}</span></div>
+        ${item.genres ? `<div class="tooltip__row"><span>Genres:</span><span>${item.genres.slice(0, 3).join(', ')}</span></div>` : ''}
+        ${item.primary_decade ? `<div class="tooltip__row"><span>Decade:</span><span>${item.primary_decade}</span></div>` : ''}
+      `;
+      const rect = canvasContainer.getBoundingClientRect();
+      let left = x + 15, top = y + 15;
+      if (left + 200 > rect.width) left = x - 215;
+      if (top + 100 > rect.height) top = y - 115;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+      tooltip.style.display = 'block';
+    }
+
+    function hideTooltip() { tooltip.style.display = 'none'; }
+
+    // === Auto-Naming ===
+    const nameCounter = new Map();
+    function getNameSuffix(baseName) {
+      const count = nameCounter.get(baseName) || 0;
+      nameCounter.set(baseName, count + 1);
+      return count + 1;
+    }
+
+    function generateSelectionName(artistIds, method, addSuffix = false) {
+      if (!currentData || artistIds.length === 0) {
+        const baseName = `${method.charAt(0).toUpperCase() + method.slice(1)} Selection`;
+        return `${baseName}${addSuffix ? ` #${getNameSuffix(baseName)}` : ''} (${artistIds.length})`;
+      }
+      const nodes = currentData.nodes || [];
+      const selectedNodes = nodes.filter(n => artistIds.includes(n.id));
+      if (selectedNodes.length === 0) {
+        const baseName = `${method.charAt(0).toUpperCase() + method.slice(1)} Selection`;
+        return `${baseName}${addSuffix ? ` #${getNameSuffix(baseName)}` : ''} (${artistIds.length})`;
+      }
+      const genreCounts = {}, subgenreCounts = {}, decadeCounts = {}, commCounts = {};
+      for (const node of selectedNodes) {
+        const comm = node.community ?? 0;
+        commCounts[comm] = (commCounts[comm] || 0) + 1;
+        const pg = node.parent_genre || null;
+        if (pg) genreCounts[pg] = (genreCounts[pg] || 0) + 1;
+        if (node.genres) node.genres.slice(0, 3).forEach(g => { if (g !== pg) subgenreCounts[g] = (subgenreCounts[g] || 0) + 1; });
+        const dec = node.primary_decade || null;
+        if (dec) decadeCounts[dec] = (decadeCounts[dec] || 0) + 1;
+      }
+      const sort = obj => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+      const parts = [];
+      const topGenre = sort(genreCounts)[0];
+      if (topGenre && topGenre[1] / selectedNodes.length > 0.5) parts.push(topGenre[0]);
+      const topSub = sort(subgenreCounts)[0];
+      if (topSub && topSub[1] / selectedNodes.length > 0.4) parts.push(topSub[0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+      const topDec = sort(decadeCounts)[0];
+      if (topDec && topDec[1] / selectedNodes.length > 0.5) parts.push(topDec[0]);
+      const topComm = sort(commCounts);
+      if (topComm.length === 1 || (topComm.length > 0 && topComm[0][1] / selectedNodes.length > 0.7)) parts.push(`C${topComm[0][0]}`);
+      const baseName = parts.length > 0 ? parts.join(' · ') : ({ manual: 'Selection', visible: 'Visible', connected: 'Connected', cluster: 'Cluster' }[method] || 'Selection');
+      return `${baseName}${addSuffix ? ` #${getNameSuffix(baseName)}` : ''} (${artistIds.length})`;
+    }
+
+    // === Legend Sort State ===
+    let legendSort = 'count';
+    const legendSortBtns = document.querySelectorAll('.sort-pill');
+    legendSortBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        legendSortBtns.forEach(b => b.classList.remove('sort-pill--active'));
+        btn.classList.add('sort-pill--active');
+        legendSort = btn.dataset.sort;
+        if (currentData) updateColorLegend(currentColorMode, currentData);
+      });
+    });
+
+    // === Info Panel Updates ===
+    function updateStats(stats) {
+      statArtists.textContent    = stats.totalNodes || '--';
+      statConnections.textContent = stats.totalEdges || stats.visibleEdges || '--';
+      statCommunities.textContent = stats.communities || '--';
+      statVisible.textContent    = stats.visibleNodes || '--';
+
+      // Community sizes bar chart
+      const sizesWrap = document.getElementById('community-sizes');
+      const sizesChart = document.getElementById('community-sizes-chart');
+      if (sizesChart && stats.communitySizes && stats.communitySizes.length > 0) {
+        const sizes = stats.communitySizes;
+        const maxSize = Math.max(...sizes);
+        sizesChart.innerHTML = sizes.map((s, i) =>
+          `<div class="community-size-bar" data-size="${s}" style="height:${Math.max(8, Math.round(s/maxSize*56))}px" title="C${i+1}: ${s} artists"></div>`
+        ).join('');
+        sizesWrap.style.display = '';
+      } else if (sizesWrap) {
+        sizesWrap.style.display = 'none';
+      }
+    }
+
+    function updateBridgeList(bridges) {
+      if (!bridges || !bridges.top_by_betweenness) {
+        bridgeList.innerHTML = '<div class="text-muted text-sm">No bridge data</div>';
+        return;
+      }
+      bridgeList.innerHTML = bridges.top_by_betweenness.slice(0, 10).map(b => `
+        <div class="bridge-item">
+          <span class="bridge-item__name">${b.name || b.id}</span>
+          <span class="bridge-item__value">${b.track_count || ''}</span>
+        </div>
+      `).join('');
+    }
+
+    // === Genre Community cross-coloring (uses shared COMM_MAPS cache) ===
+    async function applyGenreCommToNodes(data) {
+      await fetchCommMap('genre_comm'); // populates COMM_MAPS['__genre_raw__']
+      if (!data || !graphView) return;
+      const genreRaw = COMM_MAPS['__genre_raw__'] || {};
+      // Patch nodes in-place for color rendering
+      for (const n of graphView.nodes) {
+        const comms = {};
+        for (const g of (n.genres || [])) {
+          const c = genreRaw[g];
+          if (c != null) comms[c] = (comms[c] || 0) + 1;
+        }
+        const top = Object.entries(comms).sort((a, b) => b[1] - a[1])[0];
+        n.genre_community = top ? Number(top[0]) : null;
+      }
+      graphView.render();
+      updateColorLegend(currentColorMode, data);
+    }
+
+    function updateColorLegend(mode, data) {
+      let legend = generateLegend(mode, data);
+      if (legend.length === 0) { colorLegend.innerHTML = '<div class="text-muted text-sm">No legend data</div>'; return; }
+      if (legend[0]?.type === 'gradient') {
+        const g = legend[0];
+        colorLegend.innerHTML = `
+          <div class="gradient-bar" style="background: linear-gradient(to right, ${g.colors.join(', ')})"></div>
+          <div class="gradient-labels"><span>${g.range[0]}</span><span>${g.range[1]}</span></div>`;
+      } else {
+        // Apply sort
+        if (legendSort === 'alpha') {
+          legend = [...legend].sort((a, b) => a.label.localeCompare(b.label));
+        } else if (legendSort === 'value') {
+          // For bounded (numeric) features, sort by value extracted from label
+          legend = [...legend].sort((a, b) => {
+            const numA = parseFloat(a.label);
+            const numB = parseFloat(b.label);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.label.localeCompare(b.label);
+          });
+        }
+        // 'count' = default order from generateLegend (already sorted by count)
+        colorLegend.innerHTML = legend.map(item => `
+          <div class="color-legend__item">
+            <div class="color-legend__swatch" style="background: ${item.color}"></div>
+            <span>${item.label}</span>
+          </div>`).join('');
+      }
+    }
+
+    // === Slider Updates ===
+    Object.entries(sliders).forEach(([key, { input, value }]) => {
+      input.addEventListener('input', () => {
+        let displayValue = input.value;
+        if (key === 'edgeOpacity' || key === 'minSimilarity') displayValue = input.value + '%';
+        value.textContent = displayValue;
+        if (!graphView) return;
+        switch (key) {
+          case 'nodeSize':       graphView.setOption('nodeSize', parseInt(input.value)); break;
+          case 'labelThreshold': graphView.setOption('labelThreshold', parseInt(input.value)); break;
+          case 'edgeOpacity':    graphView.setOption('edgeOpacity', parseInt(input.value) / 100); break;
+          case 'minSimilarity':  graphView.setOption('minSimilarity', parseInt(input.value) / 100); break;
+          case 'minTracks':
+            graphView.setMinTracks(parseInt(input.value));
+            if (graphView.getStats) updateStats(graphView.getStats());
+            break;
+        }
+      });
+    });
+
+    showLabelsCheckbox.addEventListener('change', () => { if (graphView) graphView.setOption('showLabels', showLabelsCheckbox.checked); });
+    showEdgesCheckbox.addEventListener('change',  () => { if (graphView) graphView.setOption('showEdges', showEdgesCheckbox.checked); });
+
+    // === Match Colors Toggle ===
+    const matchColorsCheckbox = document.getElementById('match-colors');
+
+    // === Physics Controls ===
+    const physicsEnabled = document.getElementById('physics-enabled');
+    physicsEnabled.addEventListener('change', () => {
+      if (graphView) {
+        if (physicsEnabled.checked) graphView.startPhysics();
+        else graphView.stopPhysics();
+      }
+    });
+
+    sliders.linkStrength.input.addEventListener('input', () => {
+      const v = parseInt(sliders.linkStrength.input.value);
+      sliders.linkStrength.value.textContent = v;
+      if (graphView) graphView.setPhysicsOption('linkStrength', v / 200);
+    });
+
+    sliders.repulsion.input.addEventListener('input', () => {
+      const v = parseInt(sliders.repulsion.input.value);
+      sliders.repulsion.value.textContent = v;
+      if (graphView) graphView.setPhysicsOption('repulsion', 100 + v * 9);
+    });
+
+    document.getElementById('reheat-physics').addEventListener('click', () => {
+      if (graphView) {
+        graphView.physicsAlpha = 1.0;
+        if (!graphView.physicsEnabled) graphView.startPhysics();
+        for (const node of graphView.nodes) {
+          node.vx = (Math.random() - 0.5) * 5;
+          node.vy = (Math.random() - 0.5) * 5;
+        }
+      }
+    });
+
+    // === Preset Change ===
+    presetSelect.addEventListener('change', () => {
+      loadGraphData(presetSelect.value);
+    });
+
+    // === Community color mode — set canvas to community-based coloring matching the filter ===
+    function applyMatchedCommunityColor(key) {
+      let mode;
+      if (key === 'parent_genre')        mode = 'parent_genre';
+      else if (key === 'primary_decade') mode = 'decade';
+      else                               mode = 'filter_community'; // artist_*, genre_comm, emb_*: always use _filter_val
+
+      currentColorMode = mode;
+      if (graphView) {
+        graphView.setOption('colorMode', mode);
+        if (currentData) updateColorLegend(mode, currentData);
+      }
+    }
+
+    // === Match Colors toggle: when turned ON, sync canvas to current filter ===
+    matchColorsCheckbox.addEventListener('change', () => {
+      if (matchColorsCheckbox.checked) {
+        colorPills.forEach(p => p.classList.remove('color-pill--active'));
+        applyMatchedCommunityColor(filterKey);
+      }
+    });
+
+    // === Color Mode Change — manual pill click turns off Match Colors ===
+    colorPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        matchColorsCheckbox.checked = false;
+        colorPills.forEach(p => p.classList.remove('color-pill--active'));
+        pill.classList.add('color-pill--active');
+        currentColorMode = pill.dataset.color;
+        if (graphView) {
+          graphView.setOption('colorMode', currentColorMode);
+          if (currentData) updateColorLegend(currentColorMode, currentData);
+        }
+      });
+    });
+
+    // === Filter Community Change ===
+    filterCommunitySelect.addEventListener('change', () => {
+      filterKey = filterCommunitySelect.value;
+      applyFilterKey(filterKey);
+      if (matchColorsCheckbox.checked) applyMatchedCommunityColor(filterKey);
+    });
+
+    // === Search ===
+    let searchTimeout = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        const query = searchInput.value.toLowerCase().trim();
+        if (graphView) {
+          graphView.filterBySearch(query);
+          // Show labels while searching, hide when search is cleared
+          graphView.setOption('showLabels', query.length > 0 || showLabelsCheckbox.checked);
+        }
+      }, 300);
+    });
+
+    // === Selection System ===
+    const selectionSummary = document.getElementById('selection-summary');
+
+    function updateSelectionBar() {
+      const selectedIds = view.selectedArtists;
+      const count = selectedIds.length;
+      selectionCount.textContent = count;
+      selectionBar.style.display = count === 0 ? 'none' : 'flex';
+      if (count > 0) {
+        selectionSummary.innerHTML = `
+          <div class="selection-summary__count">${count}</div>
+          <div class="selection-summary__label">artists selected</div>
+          <div class="selection-summary__genres">${generateSelectionName(selectedIds, 'manual')}</div>`;
+      } else {
+        selectionSummary.innerHTML = '<div class="text-muted text-sm">Nothing selected</div>';
+      }
+    }
+
+    view.addEventListener('selection-change', () => {
+      updateSelectionBar();
+      if (graphView) {
+        const selectedIds = view.selectedArtists;
+        if (selectedIds.length === 1) {
+          const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+          graphView.setFocusNodes(new Set(graphView.getNeighborsAtDepth(selectedIds, depth)));
+        } else {
+          graphView.clearFocus();
+          graphView.render();
+        }
+      }
+    });
+
+    clearSelectionBtn.addEventListener('click', () => view.clearSelection());
+
+    addToStagingBtn.addEventListener('click', () => {
+      const selectedIds = view.selectedArtists;
+      if (selectedIds.length === 0) return;
+      staging.add({
+        id: Date.now().toString(), type: 'manual',
+        name: generateSelectionName(selectedIds, 'manual', true),
+        source: { view: 'artist_graph', preset: presetSelect.value, method: 'manual' },
+        artistIds: [...selectedIds], trackIds: [],
+      });
+      view.clearSelection();
+    });
+
+    addVisibleBtn.addEventListener('click', () => {
+      if (!graphView) return;
+      const visibleIds = graphView.getVisibleNodeIds?.() || [];
+      if (visibleIds.length === 0) return;
+      staging.add({
+        id: Date.now().toString(), type: 'visible',
+        name: generateSelectionName(visibleIds, 'visible', true),
+        source: { view: 'artist_graph', preset: presetSelect.value, method: 'visible' },
+        artistIds: visibleIds, trackIds: [],
+      });
+    });
+
+    addConnectedBtn.addEventListener('click', () => {
+      const selectedIds = view.selectedArtists;
+      if (selectedIds.length === 0 || !graphView || !graphView.getConnectedNodeIds) return;
+      const connectedIds = graphView.getConnectedNodeIds(selectedIds);
+      staging.add({
+        id: Date.now().toString(), type: 'connected',
+        name: generateSelectionName(connectedIds, 'connected', true),
+        source: { view: 'artist_graph', preset: presetSelect.value, method: 'connected' },
+        artistIds: connectedIds, trackIds: [],
+      });
+      view.clearSelection();
+    });
+
+    resetViewBtn.addEventListener('click', () => { if (graphView) graphView.resetView(); });
+
+    // === Focus / Connection Actions ===
+    let viewConnectedActive = false;
+
+    function applyViewConnected() {
+      if (!graphView || view.selectedArtists.length === 0) return;
+      const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+      const connected = graphView.getNeighborsAtDepth(view.selectedArtists, depth);
+      graphView.clearFocus();
+      graphView.visibleNodes = new Set(connected);
+      graphView.render();
+      if (graphView.getStats) updateStats(graphView.getStats());
+      viewConnectedActive = true;
+    }
+
+    document.getElementById('focus-depth').addEventListener('input', () => {
+      document.getElementById('focus-depth-value').textContent = document.getElementById('focus-depth').value;
+      const selectedIds = view.selectedArtists;
+      if (graphView) {
+        if (viewConnectedActive && selectedIds.length > 0) {
+          applyViewConnected();
+        } else if (selectedIds.length === 1) {
+          const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+          graphView.setFocusNodes(new Set(graphView.getNeighborsAtDepth(selectedIds, depth)));
+        }
+      }
+    });
+
+    document.getElementById('view-connected').addEventListener('click', applyViewConnected);
+
+    document.getElementById('select-connected').addEventListener('click', () => {
+      if (!graphView || view.selectedArtists.length === 0) return;
+      const depth = parseInt(document.getElementById('focus-depth').value) || 1;
+      const connected = graphView.getNeighborsAtDepth(view.selectedArtists, depth);
+      view.setSelection(connected);
+    });
+
+    document.getElementById('clear-focus').addEventListener('click', () => {
+      if (!graphView) return;
+      viewConnectedActive = false;
+      graphView.clearFocus();
+      graphView.updateVisibleNodes();
+      graphView.render();
+      if (graphView.getStats) updateStats(graphView.getStats());
+      view.clearSelection();
+    });
+
+    // === Staging Updates ===
+    function updateStagingUI() {
+      const stats = staging.getStats();
+      stagingSelections.textContent = stats.selectionCount;
+      stagingArtists.textContent = stats.artistCount;
+      const allArtistIds = new Set(staging.getAllArtistIds());
+      const viewNodes = currentData ? (currentData.nodes || []) : [];
+      let trackCount = 0;
+      for (const node of viewNodes) {
+        if (allArtistIds.has(node.id)) trackCount += node.track_count || node.trackCount || 0;
+      }
+      stagingTracks.textContent = trackCount;
+    }
+
+    staging.addEventListener('change', updateStagingUI);
+
+    // === Keyboard Shortcuts ===
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.key === 's') {
+        e.preventDefault();
+        togglePanel(panelLeft, true);
+        searchInput.focus();
+        searchInput.select();
+      } else if (e.key === 'f') {
+        e.preventDefault();
+        togglePanel(panelLeft, true);
+        const controlsAccordion = document.querySelector('[data-accordion="controls"]');
+        if (controlsAccordion && !controlsAccordion.classList.contains('accordion--open')) {
+          controlsAccordion.classList.add('accordion--open');
+        }
+      } else if (e.key === 'e') {
+        e.preventDefault();
+        window.location.href = 'selected.html';
+      } else if (e.key === 'Escape') {
+        view.clearSelection();
+      }
+    });
+
+    // === Initialize ===
+    function init() {
+      loadPanelState();
+      // Sync slider display values from HTML defaults
+      sliders.nodeSize.value.textContent = sliders.nodeSize.input.value;
+      sliders.minTracks.value.textContent = sliders.minTracks.input.value;
+      loadGraphData('balanced');
+      updateStagingUI();
+      updateSelectionBar();
+    }
+
+    init();
+  </script>
+</body>
+</html>

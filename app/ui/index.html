@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LibraryExplorer</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: var(--space-6);
+    }
+
+    .landing__title {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: var(--space-4);
+      letter-spacing: -0.02em;
+    }
+
+    .landing__subtitle {
+      font-size: var(--text-lg);
+      color: var(--text-muted);
+      max-width: 500px;
+      margin-bottom: var(--space-8);
+    }
+
+    .landing__stats {
+      display: flex;
+      gap: var(--space-8);
+      margin-bottom: var(--space-8);
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat__value {
+      font-size: var(--text-3xl);
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--accent);
+    }
+
+    .stat__label {
+      font-size: var(--text-sm);
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .landing__actions {
+      display: flex;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .landing__footer {
+      position: absolute;
+      bottom: var(--space-6);
+      color: var(--text-faint);
+      font-size: var(--text-sm);
+    }
+
+    /* Loading state */
+    .loading .stat__value {
+      color: var(--text-faint);
+    }
+  </style>
+</head>
+<body>
+  <main class="landing" id="landing">
+    <h1 class="landing__title">LibraryExplorer</h1>
+    <p class="landing__subtitle">
+      Explore your music library through graphs, embeddings, and clusters.
+      Build playlists by visually selecting artists and communities.
+    </p>
+
+    <div class="landing__stats" id="stats">
+      <div class="stat">
+        <div class="stat__value" id="stat-tracks">--</div>
+        <div class="stat__label">Tracks</div>
+      </div>
+      <div class="stat">
+        <div class="stat__value" id="stat-artists">--</div>
+        <div class="stat__label">Artists</div>
+      </div>
+      <div class="stat">
+        <div class="stat__value" id="stat-genres">--</div>
+        <div class="stat__label">Genres</div>
+      </div>
+    </div>
+
+    <div class="landing__actions" id="actions">
+      <!-- Populated by JS based on data state -->
+    </div>
+
+    <footer class="landing__footer">
+      <span id="status">Connecting to API...</span>
+    </footer>
+  </main>
+
+  <script type="module">
+    import * as api from './js/lib/api.js';
+
+    const statusEl  = document.getElementById('status');
+    const tracksEl  = document.getElementById('stat-tracks');
+    const artistsEl = document.getElementById('stat-artists');
+    const genresEl  = document.getElementById('stat-genres');
+    const actionsEl = document.getElementById('actions');
+
+    let pollTimer = null;
+
+    async function loadStats() {
+      const validation = await api.getValidation();
+      if (validation.track_count != null) tracksEl.textContent = validation.track_count.toLocaleString();
+      if (validation.artist_count != null) artistsEl.textContent = validation.artist_count.toLocaleString();
+      try {
+        const res = await api.getArtists({ limit: 5000 });
+        const genres = new Set();
+        res.artists.forEach(a => (a.genres || []).forEach(g => genres.add(g)));
+        genresEl.textContent = genres.size.toLocaleString();
+      } catch { genresEl.textContent = '--'; }
+    }
+
+    async function checkActiveJob() {
+      try {
+        const jobs = await api.listJobs();
+        const running = jobs.jobs?.find(j => j.status === 'running' || j.status === 'pending');
+        if (running) {
+          const pct = Math.round((running.progress || 0) * 100);
+          statusEl.textContent = `Pipeline running ${pct}%…`;
+          statusEl.style.color = 'var(--accent)';
+          actionsEl.innerHTML = `
+            <a href="progress.html?job_id=${running.job_id}" class="btn btn--primary btn--lg">View Progress</a>
+            <a href="settings.html" class="btn btn--lg">Settings</a>
+          `;
+          if (!pollTimer) pollTimer = setInterval(checkActiveJob, 3000);
+          return true;
+        }
+        // Check if a job just completed
+        const done = jobs.jobs?.find(j => j.status === 'completed');
+        if (done && pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          statusEl.textContent = 'Pipeline complete — refreshing…';
+          statusEl.style.color = 'var(--success)';
+          await loadStats();
+          await showMainUI();
+          statusEl.textContent = 'Ready';
+          statusEl.style.color = '';
+          return false;
+        }
+      } catch { /* no jobs endpoint or no jobs */ }
+      return false;
+    }
+
+    async function showMainUI() {
+      let hasData = false;
+      try {
+        const presets = await api.getGraphPresets();
+        hasData = presets.available && presets.available.length > 0;
+      } catch { hasData = false; }
+
+      if (hasData) {
+        actionsEl.innerHTML = `
+          <a href="explore-graph-artist.html" class="btn btn--primary btn--lg">Start Exploring</a>
+          <a href="settings.html" class="btn btn--lg">Settings</a>
+        `;
+      } else {
+        actionsEl.innerHTML = `
+          <a href="settings.html" class="btn btn--primary btn--lg">Upload & Compute</a>
+        `;
+      }
+    }
+
+    async function init() {
+      try {
+        await api.healthCheck();
+        statusEl.textContent = 'Connected';
+
+        const isRunning = await checkActiveJob();
+        if (!isRunning) {
+          await loadStats();
+          await showMainUI();
+          statusEl.textContent = 'Ready';
+        }
+      } catch (e) {
+        console.error('Failed to connect:', e);
+        statusEl.textContent = 'API offline — start with: uvicorn app.api.server:app --reload';
+        statusEl.style.color = 'var(--error)';
+        actionsEl.innerHTML = `<a href="settings.html" class="btn btn--lg">Settings</a>`;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
