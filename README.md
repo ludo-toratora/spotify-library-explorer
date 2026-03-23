@@ -40,7 +40,7 @@ On first run the UI will prompt you to upload your data and kick off the pipelin
 
 ## Getting Your Data
 
-The easiest way is [Chosic](https://www.chosic.com/spotify-liked-songs/). Connect your Spotify account and download your liked songs as a CSV.
+The easiest way is [Chosic](https://www.chosic.com/spotify-liked-songs-organizer/). Connect your Spotify account and download your liked songs as a CSV.
 
 Then go to **Settings > Upload**, tick **"Chosic export (.csv)"**, and drop the file. LibraryExplorer converts it automatically.
 
