@@ -1,6 +1,9 @@
-# LibraryExplorer
+# Spotify Library Explorer
 
-A personal Spotify library explorer. Upload your Spotify data, then visually navigate your music through artist similarity graphs, UMAP embeddings, and genre clusters. Build playlists by selecting communities.
+A personal Spotify library explorer for large libraries. Upload your Spotify data, then visually navigate your music through artist similarity graphs, UMAP embeddings, and genre clusters.
+
+![Artist Graph view](docs/artist-graph-selection-communities.png)
+
 
 ---
 
@@ -10,6 +13,30 @@ A personal Spotify library explorer. Upload your Spotify data, then visually nav
 - **Embedding Map**: UMAP 2D scatter plot where proximity reflects feature similarity (audio, genre, era).
 - **Browse**: genre hierarchy trees, decade histograms, community drill-down.
 - **Selected**: assemble artists from any view into named sets, apply audio/metadata filters, review tracks, export to Spotify or CSV.
+
+---
+
+## Screenshots
+
+### Artist Graph
+Force-directed artist similarity graph for exploring communities and connections.
+
+![Artist Graph](docs/artist-graph-selection-connections.png)
+
+### Genre Graph
+Genre co-occurrence network showing parent genres, connected subgenres, and bridge nodes.
+
+![Genre Graph](docs/genre-graph.png)
+
+### Embedding Map
+2D embedding view for inspecting similarity structure across the library.
+
+![Embedding Map](docs/embedding-map.png)
+
+### Browse
+Structured library browser with genre hierarchy, counts, and summary panels.
+
+![Browse view](docs/browse-genre.png)
 
 ---
 
@@ -34,7 +61,7 @@ uvicorn app.api.server:app --reload
 
 Then open `http://127.0.0.1:8000/ui/index.html`.
 
-On first run the UI will prompt you to upload your data and kick off the pipeline (10–45 min depending on library size).
+On first run the UI will prompt you to upload your data and kick off the pipeline.
 
 ---
 
@@ -42,9 +69,19 @@ On first run the UI will prompt you to upload your data and kick off the pipelin
 
 The easiest way is [Chosic](https://www.chosic.com/spotify-liked-songs-organizer/). Connect your Spotify account and download your liked songs as a CSV.
 
-Then go to **Settings > Upload**, tick **"Chosic export (.csv)"**, and drop the file. LibraryExplorer converts it automatically.
+Then go to **Settings > Upload**, tick **"Chosic export (.csv)"**, and drop the file. The app converts it automatically.
 
 Alternatively, upload a `normalized_tracks.json` directly if you already have one.
+
+---
+
+## Performance
+
+First-run processing depends on library size and whether cached results already exist.
+
+As a reference, processing a library of about 7,000 liked songs with no cache took around 30 minutes on a local machine.
+
+Once the pipeline has run, the UI reads cached results from `app/cache/`.
 
 ---
 
@@ -90,7 +127,7 @@ To create playlists directly in Spotify:
 3. Set the redirect URI shown in Settings (it reflects your actual host/port)
 4. Connect from the **Selected** page and click **Create Spotify Playlist**
 
-Uses PKCE OAuth. No client secret required, no server-side token handling.
+Uses PKCE OAuth. No client secret required and no server-side token handling
 
 ---
 
@@ -105,7 +142,7 @@ The backend exposes a REST API at `http://127.0.0.1:8000/api/`:
 | `GET /api/tracks` | Artist list (paginated) |
 | `GET /api/validation` | Data quality report |
 | `GET/POST /api/config` | Pipeline configuration |
-| `POST /api/upload` | Upload normalized_tracks.json |
+| `POST /api/upload` | Upload source data |
 | `POST /api/recompute` | Trigger pipeline recomputation |
 | `GET /api/recompute/{job_id}` | Poll job status |
 
